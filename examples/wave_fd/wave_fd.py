@@ -25,7 +25,6 @@ def get_exact(args, t, x):
     u = u.numpy()
     return u, ut
 
-
 def operator_wave(ctx):
     extra = ctx.extra
     mod = ctx.mod
@@ -99,12 +98,12 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    parser.set_defaults(optimizer="lbfgsb")
-    # parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="lbfgsb")
+    parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="adam")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
-    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
 
@@ -141,11 +140,14 @@ def plot_func(problem, state, epoch, frame, cbinfo=None):
         with open(path, "wb") as f:
             pickle.dump(d, f)
 
+
+    global u_fd
     umax = max(abs(np.max(ref_u)), abs(np.min(ref_u)))
     plot_1d(
         domain,
-        extra.ref_u,
-        state_u,
+        u_ref=ref_u,
+        u_fd=u_fd,
+        u_state=state_u,
         path=path0,
         title=title0,
         cmap="RdBu_r",
@@ -155,10 +157,13 @@ def plot_func(problem, state, epoch, frame, cbinfo=None):
         umax=umax,
     )
 
+
+    global ut_fd
     umax = max(abs(np.max(ref_ut)), abs(np.min(ref_ut)))
     plot_1d(
         domain,
         ref_ut,
+        ut_fd,
         state_ut,
         path=path1,
         title=title1,
@@ -177,14 +182,33 @@ def get_error(domain, extra, state, key):
         return np.sqrt(np.mean((state_u - ref_u) ** 2))
     return None
 
+def get_error_t_end(domain, extra, state, key):
+    if key == "u":
+        state_u = domain.field(state, key)
+        ref_u = extra.ref_u
+        return np.sqrt(np.mean((state_u[-1,:] - ref_u[-1,:]) ** 2))
+    return None
+
+def get_error_fd(domain, ref_u):
+    global u_fd
+    Nt, Nx = domain.cshape
+    dt = domain.step("t")
+    t1, x1 = domain.points_1d()
+    t_final = domain.lower[0] + (Nt - 1)*dt
+    u_exact_final, _ = get_exact([], t_final, x1)
+    error = np.sqrt(np.mean((u_fd[-1, :] - u_exact_final)**2))
+    return error
+
 
 def history_func(problem, state, epoch, history, cbinfo):
     domain = problem.domain
     extra = problem.extra
     for key in ["u", "k"]:
+        # error = get_error_t_end(domain, extra, state, key)
         error = get_error(domain, extra, state, key)
         if error is not None:
             history.append("error_" + key, error)
+    history.append("error_" + "u_fd", get_error_fd(domain, extra.ref_u))
 
 
 def report_func(problem, state, epoch, cbinfo):
@@ -195,6 +219,7 @@ def report_func(problem, state, epoch, cbinfo):
         error = get_error(domain, extra, state, key)
         if error is not None:
             res[key] = error
+    res["u_fd"] = get_error_fd(domain, extra.ref_u)
     printlog("error: " + ", ".join("{}:{:.5g}".format(*item) for item in res.items()))
 
 
@@ -229,19 +254,70 @@ def make_problem(args):
 
     state = odil.State()
     state.fields["u"] = np.zeros(domain.cshape)
+    # state.fields["u"] = np.array([[1/np.log(i + 1) for j in range(domain.cshape[0])]for i in range(domain.cshape[1])])
     # state.fields["u"] = np.random.normal(size=domain.cshape)
     state = domain.init_state(state)
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
+
+def solve_fd(problem):
+    domain = problem.domain
+    Nt, Nx = domain.cshape
+    t_lower, x_lower = domain.lower
+    t_upper, x_upper = domain.upper
+    dt = (t_upper - t_lower) / (Nt - 1)
+    dx = (x_upper - x_lower) / (Nx - 1)
+    t1 = np.array([t_lower + i * dt for i in range(Nt)])
+    x1 = np.array([x_lower + i * dx for i in range(Nx)])
+    print(t1)
+    u0, ut0 = get_exact([], x1 * 0 + t_lower, x1)
+    u = np.zeros((Nt, Nx))
+    ut = np.zeros((Nt, Nx))
+    u[0,:] = u0
+    left_u, _ = get_exact([], t1, t1 * 0 + x_lower)
+    right_u, _ = get_exact([], t1, t1 * 0 + x_upper)
+    ghost_left0 = odil.core.extrap_quad(u0[1], u0[0], left_u[0])
+    ghost_right0 = odil.core.extrap_quad(u0[-2], u0[-1], right_u[0])
+
+    uxx0 = np.zeros_like(u0)
+    uxx0[1:-1] = (u0[2:] - 2 * u0[1:-1] + u0[:-2]) / (dx**2)
+    uxx0[0] = (u0[1] - 2 * u0[0] + ghost_left0) / (dx**2)
+    uxx0[-1] = (ghost_right0 - 2 * u0[-1] + u0[-2]) / (dx**2)
+
+    u[1, :] = u0 + ut0 * dt + 0.5 * dt**2 * uxx0
+    for i in range(1, Nt-1):
+        ghost_left = odil.core.extrap_quad(u[i,1], u[i,0], left_u[i])
+        ghost_right = odil.core.extrap_quad(u[i,-2], u[i,-1], right_u[i])
+        u_xx_left = (u[i,1] - 2 * u[i,0] + ghost_left) / (dx**2)
+        u_xx_right = (ghost_right - 2 * u[i,-1] + u[i,-2]) / (dx**2)
+        u[i+1,0] = dt**2 * u_xx_left + 2 * u[i,0] - u[i-1,0]
+        u[i+1,-1] = dt**2 * u_xx_right + 2 * u[i,-1] - u[i-1,-1]
+        for j in range(1, Nx-1):
+            u_xx = (u[i,j+1] - 2 * u[i,j] + u[i,j-1]) / (dx**2)
+            u[i+1,j] = dt**2 * u_xx + 2 * u[i,j] - u[i-1,j]
+    ut = np.zeros_like(u)
+    ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
+    ut[0, :] = (u[1, :] - u[0, :]) / dt
+    ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
+
+    return u, ut
+    
+
+u_fd = None
+ut_fd = None
 
 
 def main():
     args = parse_args()
     odil.setup_outdir(args)
     problem, state = make_problem(args)
+    global u_fd
+    global ut_fd
+    u_fd, ut_fd = solve_fd(problem)
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
+    # odil.util.optimize(args, args.optimizer, problem, state, callback)#, factr=10000)
     odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
 
     with open("done", "w"):

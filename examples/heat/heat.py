@@ -271,11 +271,13 @@ def parse_args():
     parser.set_defaults(outdir="out_heat")
     parser.set_defaults(linsolver="direct")
     parser.set_defaults(optimizer="adam")
+    # parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="lbfgsb")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(double=0)
-    parser.set_defaults(multigrid=1)
+    parser.set_defaults(multigrid=0)
     parser.set_defaults(plotext="png", plot_title=1)
-    parser.set_defaults(plot_every=2000, report_every=500, history_full=10, history_every=100, frames=10)
+    parser.set_defaults(plot_every=1000, report_every=500, history_full=10, history_every=100, frames=10)
     return parser.parse_args()
 
 
@@ -511,7 +513,8 @@ def make_problem(args):
     state = odil.State()
     if args.solver == "odil":
         operator = operator_odil
-        state.fields["u"] = np.zeros(domain.cshape)
+        # state.fields["u"] = np.zeros(domain.cshape)
+        state.fields["u"] = np.random.normal(size=domain.cshape)
     elif args.solver == "pinn":
         state.fields["u_net"] = domain.make_neural_net([2] + args.arch_u + [1])
         operator = operator_pinn
@@ -549,7 +552,7 @@ def main():
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    odil.util.optimize(args, args.optimizer, problem, state, callback)
+    odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
 
     with open("done", "w"):
         pass

@@ -7,6 +7,7 @@ import numpy as np
 def plot_1d(
     domain,
     u_ref,
+    u_fd,
     u_state,
     path=None,
     title=None,
@@ -18,12 +19,13 @@ def plot_1d(
     nslices=6,
     dpi=300,
     transparent=True,
-    figsize=(3, 2.5),
+    figsize=(4, 2.5),
     aspect="auto",
     callback=None,
     interpolation="nearest",
     cmap=None,
     cref="C2",
+    cfd="C1",
     cstate="C0",
 ):
     if transpose:
@@ -31,6 +33,7 @@ def plot_1d(
         ix = 1
         iy = 0
         u_ref = u_ref.T
+        u_fd = u_fd.T
         u_state = u_state.T
     else:
         # Index zero drawn as horizontal.
@@ -39,7 +42,7 @@ def plot_1d(
     extent = [domain.lower[ix], domain.upper[ix], domain.lower[iy], domain.upper[iy]]
     fig = plt.figure(figsize=figsize)
     fig.subplots_adjust(hspace=0, wspace=0)
-    spec = fig.add_gridspec(2 * nslices, 3)
+    spec = fig.add_gridspec(3 * nslices, 4)
     xx, yy = domain.points_1d(ix, iy)
     xx, yy = np.array(xx), np.array(yy)
     xlim = (domain.lower[ix], domain.upper[ix])
@@ -55,8 +58,8 @@ def plot_1d(
     slim = (umin - ptp * slice_lim, umax + ptp * slice_lim)
     if title is not None:
         fig.suptitle(title, fontsize=8)
-    axes = [None, None]
-    for data, i in (u_state, 0), (u_ref, 1):
+    axes = [None, None, None]
+    for data, i in (u_state, 0), (u_fd, 1), (u_ref, 2):
         axes[i] = fig.add_subplot(spec[1:-1, i])
         ax = axes[i]
         ax.spines[:].set_visible(True)
@@ -81,15 +84,16 @@ def plot_1d(
             ax.invert_xaxis()
 
     shift = 0.22
-    spec = fig.add_gridspec(2 * nslices, 3, left=shift)
+    spec = fig.add_gridspec(3 * nslices, 4, left=shift)
     for i in range(nslices):
         yslice = i * (domain.cshape[iy] - 1) // max(1, nslices - 1)
         ns = nslices - 1 - i
-        ax = fig.add_subplot(spec[2 * ns : 2 * ns + 2, 2])
+        ax = fig.add_subplot(spec[3 * ns : 3 * ns + 3, 3])
         ax.spines[:].set_visible(True)
         ax.spines[:].set_linewidth(0.25)
         (l0,) = ax.plot(xx, u_ref[:, yslice], c=cref, ls="-", label="reference", linewidth=0.9)
-        (l1,) = ax.plot(xx, u_state[:, yslice], c=cstate, ls="-", label="inferred", linewidth=0.6)
+        (l1,) = ax.plot(xx, u_fd[:, yslice], c=cfd, ls="-", label="FD", linewidth=0.7)
+        (l2,) = ax.plot(xx, u_state[:, yslice], c=cstate, ls="-", label="inferred", linewidth=0.6)
         # ax.axhline(y=0, color='black', linewidth=0.5)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -111,10 +115,10 @@ def plot_1d(
             clip_on=False,
         )
     ax.legend(
-        handles=[l1, l0],
-        loc=(-2.15 - shift, 0.5),
+        handles=[l2, l1, l0],
+        loc=(-3.15 - shift, 0.5),
         columnspacing=2.2,
-        ncol=2,
+        ncol=3,
         frameon=False,
         handletextpad=0.5,
         fontsize=7,
