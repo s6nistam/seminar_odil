@@ -199,6 +199,22 @@ def get_error_fd(domain, ref_u):
     error = np.sqrt(np.mean((u_fd[-1, :] - u_exact_final)**2))
     return error
 
+def get_error_fd_3(domain, ref_u):
+    N_t, N_x = domain.cshape
+    t_min, x_min = domain.lower
+    t_max, x_max = domain.upper
+    x = np.linspace(x_min, x_max, N_x)
+    t = np.linspace(t_min, t_max, N_t)
+    global u_fd
+    U_exact_all = np.zeros_like(u_fd)
+    for n in range(N_t):
+        U_exact_all[n, :] = u_exact(x, t[n])
+    
+    # Calculate errors
+    u_error = np.abs(u_fd - U_exact_all)
+    max_u_error = np.max(u_error)
+    return max_u_error
+
 
 def history_func(problem, state, epoch, history, cbinfo):
     domain = problem.domain
@@ -208,7 +224,7 @@ def history_func(problem, state, epoch, history, cbinfo):
         error = get_error(domain, extra, state, key)
         if error is not None:
             history.append("error_" + key, error)
-    history.append("error_" + "u_fd", get_error_fd(domain, extra.ref_u))
+    history.append("error_" + "u_fd", get_error_fd_3(domain, extra.ref_u))
 
 
 def report_func(problem, state, epoch, cbinfo):
@@ -219,7 +235,7 @@ def report_func(problem, state, epoch, cbinfo):
         error = get_error(domain, extra, state, key)
         if error is not None:
             res[key] = error
-    res["u_fd"] = get_error_fd(domain, extra.ref_u)
+    res["u_fd"] = get_error_fd_3(domain, extra.ref_u)
     printlog("error: " + ", ".join("{}:{:.5g}".format(*item) for item in res.items()))
 
 
@@ -352,7 +368,8 @@ def exact_solution_time_derivative(x, t):
     total = 0.0
     for i in range(1, 6):
         # Compute the derivative term for each i
-        term = -i * np.pi * np.cos((x + 0.5) * i * np.pi) * np.sin(t * i * np.pi)
+        # term = -i * np.pi * np.cos((x + 0.5) * i * np.pi) * np.sin(t * i * np.pi)
+        term = -i * np.pi * np.cos(x * i * np.pi) * np.sin((t - 0.5) * i * np.pi)
         total += term
     return total / 5.0
 
@@ -387,8 +404,8 @@ def solve_fd_2(problem):
     
     # Interior points for first time step
     for i in range(1, Nx - 1):
-        u[1, i] = u[0, i] + exact_solution_time_derivative(x[i], 0) * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
-        # u[1, i] = u[0, i] + ut0[i] * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
+        # u[1, i] = u[0, i] + exact_solution_time_derivative(x[i], 0) * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
+        u[1, i] = u[0, i] + ut0[i] * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
         # u[1, i] = u[0, i] + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
     
 
@@ -417,6 +434,61 @@ def solve_fd_2(problem):
             )
     
     return u, u
+
+def u_exact(x, t):
+    """Analytical solution u(x, t)"""
+    s = np.zeros_like(x)
+    for i in range(1, 6):
+        s += np.cos(x * i * np.pi) * np.cos(i * np.pi * (t - 0.5))
+    return s / 5.0
+
+def u_t_exact(x, t):
+    """Analytical time derivative ∂u/∂t"""
+    s = np.zeros_like(x)
+    for i in range(1, 6):
+        s += np.cos(x * i * np.pi) * (-i * np.pi * np.sin(i * np.pi * (t - 0.5)))
+    return s / 5.0
+
+def solve_fd_3(problem):
+    domain = problem.domain
+    N_t, N_x = domain.cshape
+    t_min, x_min = domain.lower
+    t_max, x_max = domain.upper
+    dt = (t_max - t_min) / (N_t - 1)
+    dx = (x_max - x_min) / (N_x - 1)
+    
+    # Create grids
+    x = np.linspace(x_min, x_max, N_x)
+    t = np.linspace(t_min, t_max, N_t)
+    
+    # Initialize solution arrays
+    U = np.zeros((N_t, N_x))  # Numerical solution u(x,t)
+    
+    # Set initial conditions using exact solution
+    U[0, :] = u_exact(x, t[0])
+    
+    # Compute first time step using exact initial derivative
+    # Boundary conditions at t=0 (already set in U[0,:])
+    U[1, 0] = u_exact(x[0], t[1])  # Left boundary
+    U[1, -1] = u_exact(x[-1], t[1])  # Right boundary
+    
+    # Interior points for n=1 using Taylor expansion
+    for i in range(1, N_x - 1):
+        # u(x, Δt) ≈ u(x,0) + Δt*u_t(x,0) + (Δt²/2)*u_xx(x,0)
+        U[1, i] = U[0, i] + dt * u_t_exact(x[i], t[0]) + \
+                 (dt**2 / (2 * dx**2)) * (U[0, i+1] - 2*U[0, i] + U[0, i-1])
+    
+    # Time stepping (leapfrog scheme)
+    for n in range(1, N_t - 1):
+        # Apply Dirichlet boundary conditions
+        U[n+1, 0] = u_exact(x[0], t[n+1])
+        U[n+1, -1] = u_exact(x[-1], t[n+1])
+        
+        # Update interior points using finite differences
+        for i in range(1, N_x - 1):
+            U[n+1, i] = 2*U[n, i] - U[n-1, i] + \
+                        (dt**2 / dx**2) * (U[n, i+1] - 2*U[n, i] + U[n, i-1])
+    return U, U
     
 
 u_fd = None
@@ -430,7 +502,7 @@ def main():
     global u_fd
     global ut_fd
     # u_fd, ut_fd = solve_fd(problem)
-    u_fd, ut_fd = solve_fd_2(problem)
+    u_fd, ut_fd = solve_fd_3(problem)
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
