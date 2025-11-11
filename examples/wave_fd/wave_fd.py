@@ -206,7 +206,7 @@ def get_error_fd(domain):
     x = np.linspace(x_lower, x_upper, Nx)
     t = np.linspace(t_lower, t_upper, Nt)
     global u_fd
-    U_exact_final = u_exact(x, t[-1])
+    U_exact_final, _ = get_exact([], x * 0 + t_lower, x)
     
     # Calculate errors
     u_error = np.abs(u_fd[-1,:] - U_exact_final)
@@ -281,181 +281,6 @@ def solve_fd(problem):
     t_upper, x_upper = domain.upper
     dt = (t_upper - t_lower) / (Nt - 1)
     dx = (x_upper - x_lower) / (Nx - 1)
-    t = np.array([t_lower + i * dt for i in range(Nt)])
-    x = np.array([x_lower + i * dx for i in range(Nx)])
-    r = (dt / dx) ** 2
-    u0, ut0 = get_exact([], x * 0 + t_lower, x)
-    u = np.zeros((Nt, Nx))
-    ut = np.zeros((Nt, Nx))
-    u[0,:] = u0
-    left_u, _ = get_exact([], t, t * 0 + x_lower)
-    right_u, _ = get_exact([], t, t * 0 + x_upper)
-    ghost_left0 = odil.core.extrap_quad(u0[1], u0[0], left_u[0])
-    ghost_right0 = odil.core.extrap_quad(u0[-2], u0[-1], right_u[0])
-
-    uxx0 = np.zeros_like(u0)
-    uxx0[1:-1] = (u0[2:] - 2 * u0[1:-1] + u0[:-2]) / (dx**2)
-    uxx0[0] = (u0[1] - 2 * u0[0] + ghost_left0) / (dx**2)
-    uxx0[-1] = (ghost_right0 - 2 * u0[-1] + u0[-2]) / (dx**2)
-
-    u[1, 1:-2] = u0[1:-2] + ut0[1:-2] * dt + 0.5 * r * (u0[2:-1] - 2 * u0[1:-2] + u0[:-3])
-
-    # u[1, 0] = exact_solution(x[0], t[1])
-    # u[1, -1] = exact_solution(x[-1], t[1])
-    
-    # # Interior points for first time step
-    # for i in range(1, Nx - 1):
-    #     u[1, i] = u[0, i] + 0.5  * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
-
-
-    for i in range(1, Nt-1):
-        ghost_left = odil.core.extrap_quad(u[i,1], u[i,0], left_u[i])
-        ghost_right = odil.core.extrap_quad(u[i,-2], u[i,-1], right_u[i])
-        u_xx_left = (u[i,1] - 2 * u[i,0] + ghost_left) / (dx**2)
-        u_xx_right = (ghost_right - 2 * u[i,-1] + u[i,-2]) / (dx**2)
-        u[i+1,0] = dt**2 * u_xx_left + 2 * u[i,0] - u[i-1,0]
-        u[i+1,-1] = dt**2 * u_xx_right + 2 * u[i,-1] - u[i-1,-1]
-
-
-        # u[i + 1, 0] = exact_solution(x[0], t[i + 1])
-        # u[i + 1, -1] = exact_solution(x[-1], t[i + 1])
-
-        for j in range(1, Nx-1):
-            u[i+1,j] = r * (u[i,j+1] - 2 * u[i,j] + u[i,j-1]) + 2 * u[i,j] - u[i-1,j]
-    ut = np.zeros_like(u)
-    ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
-    ut[0, :] = (u[1, :] - u[0, :]) / dt
-    ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
-
-    return u, ut
-
-def exact_solution(x, t):
-    """Compute the exact analytical solution at given x and t."""
-    return get_exact([], np.array(t, dtype=float), np.array(x, dtype=float))[0]
-
-# def exact_solution(x, t):
-#     """Compute the exact analytical solution at given x and t."""
-#     total = 0.0
-#     for i in range(1, 6):
-#         total += np.cos((x + 0.5) * i * np.pi) * np.cos(t * i * np.pi)
-#         # total += np.cos(x * i * np.pi) * np.cos((t - 0.5) * i * np.pi)
-#     return total / 5.0
-
-def exact_solution_time_derivative(x, t):
-    """
-    Compute the time derivative of the analytical solution at given x and t.
-    
-    The analytical solution is:
-        u(x, t) = (1/5) * Σ_{i=1}^{5} [cos((x+0.5)*i*π) * cos(t*i*π)]
-    
-    The time derivative is:
-        u_t(x, t) = (1/5) * Σ_{i=1}^{5} [-i*π * cos((x+0.5)*i*π) * sin(t*i*π)]
-    
-    Parameters:
-    -----------
-    x : float or numpy array
-        Spatial coordinate(s) in [-1, 1]
-    t : float
-        Time coordinate in [0, 1]
-    
-    Returns:
-    --------
-    float or numpy array
-        Time derivative of the solution at (x, t)
-    """
-    total = 0.0
-    for i in range(1, 6):
-        # Compute the derivative term for each i
-        # term = -i * np.pi * np.cos((x + 0.5) * i * np.pi) * np.sin(t * i * np.pi)
-        term = -i * np.pi * np.cos(x * i * np.pi) * np.sin((t - 0.5) * i * np.pi)
-        total += term
-    return total / 5.0
-
-def solve_fd_2(problem):
-    domain = problem.domain
-    Nt, Nx = domain.cshape
-    t_lower, x_lower = domain.lower
-    t_upper, x_upper = domain.upper
-    dt = (t_upper - t_lower) / (Nt - 1)
-    dx = (x_upper - x_lower) / (Nx - 1)
-    
-    # Grid setup
-    x = np.linspace(x_lower, x_upper, Nx)
-    t = np.linspace(t_lower, t_upper, Nt)
-
-    # Stability parameter (must be <= 1 for stability)
-    r = (dt / dx) ** 2
-    print(f"Grid: dx = {dx:.4f}, dt = {dt:.4f}, r = {r:.4f} (CFL condition: r <= 1)")
-
-    u0, ut0 = get_exact([], x * 0 + t_lower, x)
-
-    # Initialize solution array
-    u = np.zeros((Nt, Nx))
-    
-    # Initial condition (t = 0)
-    u[0, :] = exact_solution(x, 0)
-    
-    # First time step using initial velocity condition (u_t = 0)
-    # Apply boundary conditions for i=1
-    u[1, 0] = exact_solution(x[0], t[1])
-    u[1, -1] = exact_solution(x[-1], t[1])
-    
-    # Interior points for first time step
-    for i in range(1, Nx - 1):
-        # u[1, i] = u[0, i] + exact_solution_time_derivative(x[i], 0) * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
-        u[1, i] = u[0, i] + ut0[i] * dt + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
-        # u[1, i] = u[0, i] + 0.5 * r * (u[0, i + 1] - 2 * u[0, i] + u[0, i - 1])
-    
-
-    # left_u = exact_solution(x_lower, t)
-    # right_u = exact_solution(x_upper, t)
-    # ghost_left0 = odil.core.extrap_quad(u[0, 1], u[0, 0], left_u[0])
-    # ghost_right0 = odil.core.extrap_quad(u[0, -2], u[0, -1], right_u[0])
-
-    # uxx0 = np.zeros_like(u[0,:])
-    # uxx0[1:-1] = (u[0, 2:] - 2 * u[0, 1:-1] + u[0, :-2]) / (dx**2)
-    # uxx0[0] = (u[0, 1] - 2 * u[0, 0] + ghost_left0) / (dx**2)
-    # uxx0[-1] = (ghost_right0 - 2 * u[0, -1] + u[0, -2]) / (dx**2)
-
-    # u[1, 1:Nx - 1] = u[0, 1:Nx - 1] + (u[0, 2:Nx] - 2 * u[0, 1:Nx - 1] + u[0, :-2]) 
-
-    # Time stepping (i >= 1)
-    for i in range(1, Nt - 1):
-        # Apply Dirichlet boundary conditions
-        u[i + 1, 0] = exact_solution(x[0], t[i + 1])
-        u[i + 1, -1] = exact_solution(x[-1], t[i + 1])
-        
-        # Update interior points using finite difference scheme
-        for j in range(1, Nx - 1):
-            u[i + 1, j] = 2 * u[i, j] - u[i - 1, j] + r * (
-                u[i, j + 1] - 2 * u[i, j] + u[i, j - 1]
-            )
-    
-    return u, u
-
-def u_exact(x, t):
-    """Analytical solution u(x, t)"""
-    # s = np.zeros_like(x)
-    # for i in range(1, 6):
-    #     s += np.cos(x * i * np.pi) * np.cos(i * np.pi * (t - 0.5))
-    # return s / 5.0
-    return get_exact([], np.array(t), np.array(x))[0]
-
-def u_t_exact(x, t):
-    """Analytical time derivative ∂u/∂t"""
-    # s = np.zeros_like(x)
-    # for i in range(1, 6):
-    #     s += np.cos(x * i * np.pi) * (-i * np.pi * np.sin(i * np.pi * (t - 0.5)))
-    # return s / 5.0
-    return get_exact([], np.array(t), np.array(x))[1]
-
-def solve_fd_3(problem):
-    domain = problem.domain
-    Nt, Nx = domain.cshape
-    t_lower, x_lower = domain.lower
-    t_upper, x_upper = domain.upper
-    dt = (t_upper - t_lower) / (Nt - 1)
-    dx = (x_upper - x_lower) / (Nx - 1)
     
     # Create grids
     x = np.linspace(x_lower, x_upper, Nx)
@@ -493,7 +318,6 @@ def solve_fd_3(problem):
     ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
     return u, ut
     
-
 u_fd = None
 ut_fd = None
 
@@ -504,8 +328,7 @@ def main():
     problem, state = make_problem(args)
     global u_fd
     global ut_fd
-    # u_fd, ut_fd = solve_fd(problem)
-    u_fd, ut_fd = solve_fd_3(problem)
+    u_fd, ut_fd = solve_fd(problem)
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
