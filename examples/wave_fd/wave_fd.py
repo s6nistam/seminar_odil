@@ -189,16 +189,6 @@ def get_error_t_end(domain, extra, state, key):
         return np.sqrt(np.mean((state_u[-1,:] - ref_u[-1,:]) ** 2))
     return None
 
-# def get_error_fd(domain, ref_u):
-#     global u_fd
-#     Nt, Nx = domain.cshape
-#     dt = domain.step("t")
-#     t1, x1 = domain.points_1d()
-#     t_final = domain.lower[0] + (Nt - 1)*dt
-#     u_exact_final, _ = get_exact([], t_final, x1)
-#     error = np.sqrt(np.mean((u_fd[-1, :] - u_exact_final)**2))
-#     return error
-
 def get_error_fd(domain):
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
@@ -275,6 +265,7 @@ def make_problem(args):
     return problem, state
 
 def solve_fd(problem):
+    # Unpack domain parameters
     domain = problem.domain
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
@@ -292,15 +283,14 @@ def solve_fd(problem):
     right_u, _ = get_exact([], t, t * 0 + x_upper)
     
     # Initialize solution arrays
-    u = np.zeros((Nt, Nx))  # Numerical solution u(x,t)
-    ut = np.zeros_like(u)
+    u = np.zeros((Nt, Nx))
+    ut = np.zeros((Nt, Nx))
     
-    # Set initial conditions using exact solution
     u[0, :] = u0
 
     # Apply Dirichlet boundary conditions
-    u[:, 0] = left_u  # Left boundary
-    u[:, -1] = right_u  # Right boundary
+    u[:, 0] = left_u
+    u[:, -1] = right_u
     
     # Compute first time step using exact initial derivative    
     # Interior points for n=1 using Taylor expansion
@@ -308,11 +298,12 @@ def solve_fd(problem):
         # u(x, Δt) ≈ u(x,0) + Δt*u_t(x,0) + (Δt²/2)*u_xx(x,0)
         u[1, i] = u[0, i] + dt * ut0[i] + (dt**2 / (2 * dx**2)) * (u[0, i+1] - 2*u[0, i] + u[0, i-1])
     
-    # Time stepping
     for n in range(1, Nt - 1):
         # Update interior points using finite differences
         for i in range(1, Nx - 1):
             u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
+
+    # Compute ut using central differences in time
     ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
     ut[0, :] = (u[1, :] - u[0, :]) / dt
     ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
@@ -332,7 +323,7 @@ def main():
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    # odil.util.optimize(args, args.optimizer, problem, state, callback)#, factr=10000)
+    # odil.util.optimize(args, args.optimizer, problem, state, callback)
     odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
 
     with open("done", "w"):
