@@ -59,8 +59,8 @@ gif_command = [
 ]
 
 # List of values (powers of 2 from 4 to 256)
-values = [16, 32, 64, 128, 256]#[4, 8, 16, 32, 64, 128, 256]
-# values = [4, 8, 16, 32, 64, 128, 256]
+# values = [16, 32, 64, 128, 256]
+values = [4, 8, 16, 32, 64, 128, 256]
 
 # Use correct argument names (based on your error, they are --Nt and --Nx)
 Nt_arg = "--Nt"
@@ -68,8 +68,8 @@ Nx_arg = "--Nx"
 
 # Run the loop
 for Nx in values:
-    for Nt in [Nx]:#values:
-    # for Nt in values:
+    # for Nt in [Nx]:
+    for Nt in values:
         if Nt <= Nx:  # Match your pattern: 4,4 8,4 8,8 16,4 16,8 16,16 ...
 
             # time.sleep(5)
