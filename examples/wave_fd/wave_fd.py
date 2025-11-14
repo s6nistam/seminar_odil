@@ -98,12 +98,12 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    # parser.set_defaults(optimizer="lbfgsb")
-    parser.set_defaults(optimizer="newton")
+    parser.set_defaults(optimizer="lbfgsb")
+    # parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="adam")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
-    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
+    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
     return parser.parse_args()
 
 
@@ -257,16 +257,16 @@ def make_problem(args):
     add_extra(locals(), "args", "ref_u", "ref_ut", "left_u", "right_u", "init_u", "init_ut")
 
     state = odil.State()
+    # state.fields["u"], _ = solve_fd(domain)
     state.fields["u"] = np.zeros(domain.cshape)
-    # state.fields["u"] = np.array([[1/np.log(i + 1) for j in range(domain.cshape[0])]for i in range(domain.cshape[1])])
+    # state.fields["u"] = np.array([[1 if i == 0 else 0 for j in range(domain.cshape[1])]for i in range(domain.cshape[0])])
     # state.fields["u"] = np.random.normal(size=domain.cshape)
     state = domain.init_state(state)
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
 
-def solve_fd(problem):
+def solve_fd(domain):
     # Unpack domain parameters
-    domain = problem.domain
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
     t_upper, x_upper = domain.upper
@@ -303,11 +303,11 @@ def solve_fd(problem):
         for i in range(1, Nx - 1):
             u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
 
-    # Compute ut using central differences in time
-    ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
-    ut[0, :] = (u[1, :] - u[0, :]) / dt
-    ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
-    return u, ut
+    # # Compute ut using central differences in time
+    # ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
+    # ut[0, :] = (u[1, :] - u[0, :]) / dt
+    # ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
+    return u, get_uut(domain, u0, u)
     
 u_fd = None
 ut_fd = None
@@ -319,7 +319,7 @@ def main():
     problem, state = make_problem(args)
     global u_fd
     global ut_fd
-    u_fd, ut_fd = solve_fd(problem)
+    u_fd, ut_fd = solve_fd(problem.domain)
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
