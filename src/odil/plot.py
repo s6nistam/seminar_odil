@@ -7,6 +7,128 @@ import numpy as np
 def plot_1d(
     domain,
     u_ref,
+    u_state,
+    path=None,
+    title=None,
+    umin=None,
+    umax=None,
+    slice_lim=0.1,
+    transpose=False,
+    invertx=False,
+    nslices=6,
+    dpi=300,
+    transparent=True,
+    figsize=(3, 2.5),
+    aspect="auto",
+    callback=None,
+    interpolation="nearest",
+    cmap=None,
+    cref="C2",
+    cstate="C0",
+):
+    if transpose:
+        # Index zero drawn as vertical, rotate by 90 degrees counterclockwise.
+        ix = 1
+        iy = 0
+        u_ref = u_ref.T
+        u_state = u_state.T
+    else:
+        # Index zero drawn as horizontal.
+        ix = 0
+        iy = 1
+    extent = [domain.lower[ix], domain.upper[ix], domain.lower[iy], domain.upper[iy]]
+    fig = plt.figure(figsize=figsize)
+    fig.subplots_adjust(hspace=0, wspace=0)
+    spec = fig.add_gridspec(2 * nslices, 3)
+    xx, yy = domain.points_1d(ix, iy)
+    xx, yy = np.array(xx), np.array(yy)
+    xlim = (domain.lower[ix], domain.upper[ix])
+    ylim = (domain.lower[iy], domain.upper[iy])
+    if umin is None:
+        umin = u_ref.min()
+    if umax is None:
+        umax = u_ref.max()
+    if cmap is None:
+        cmap = "viridis"
+    ulim = (umin, umax)
+    ptp = umax - umin
+    slim = (umin - ptp * slice_lim, umax + ptp * slice_lim)
+    if title is not None:
+        fig.suptitle(title, fontsize=8)
+    axes = [None, None]
+    for data, i in (u_state, 0), (u_ref, 1):
+        axes[i] = fig.add_subplot(spec[1:-1, i])
+        ax = axes[i]
+        ax.spines[:].set_visible(True)
+        ax.spines[:].set_linewidth(0.25)
+        ax.imshow(
+            data.T,
+            interpolation=interpolation,
+            cmap=cmap,
+            vmin=ulim[0],
+            vmax=ulim[1],
+            extent=extent,
+            origin="lower",
+            aspect=aspect,
+        )
+        if callback is not None:
+            callback(i, fig, ax, data, extent)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        if invertx:
+            ax.invert_xaxis()
+
+    shift = 0.22
+    spec = fig.add_gridspec(2 * nslices, 3, left=shift)
+    for i in range(nslices):
+        yslice = i * (domain.cshape[iy] - 1) // max(1, nslices - 1)
+        ns = nslices - 1 - i
+        ax = fig.add_subplot(spec[2 * ns : 2 * ns + 2, 2])
+        ax.spines[:].set_visible(True)
+        ax.spines[:].set_linewidth(0.25)
+        (l0,) = ax.plot(xx, u_ref[:, yslice], c=cref, ls="-", label="reference", linewidth=0.9)
+        (l1,) = ax.plot(xx, u_state[:, yslice], c=cstate, ls="-", label="inferred", linewidth=0.6)
+        # ax.axhline(y=0, color='black', linewidth=0.5)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlim(xlim)
+        ax.set_ylim(slim)
+        if invertx:
+            ax.invert_xaxis()
+        ax.arrow(
+            -0.025,
+            0.5,
+            -0.05,
+            0,
+            overhang=0,
+            head_width=0.05,
+            head_length=0.03,
+            linewidth=0.5,
+            transform=ax.transAxes,
+            facecolor="black",
+            clip_on=False,
+        )
+    ax.legend(
+        handles=[l1, l0],
+        loc=(-2.15 - shift, 0.5),
+        columnspacing=2.2,
+        ncol=2,
+        frameon=False,
+        handletextpad=0.5,
+        fontsize=7,
+    )
+
+    if path is not None:
+        fig.savefig(path, dpi=dpi, pad_inches=0.01, transparent=transparent)
+        plt.close(fig)
+    else:
+        return fig
+
+def plot_1d_fd(
+    domain,
+    u_ref,
     u_fd,
     u_state,
     path=None,
