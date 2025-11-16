@@ -67,7 +67,8 @@ def operator_burgers(ctx):
     u_x = (uxp - uxm) / (2 * dx)
     u_xx = (uxm - 2 * u + uxp) / (dx**2)
 
-    fu = u_t + u * u_x - 1/args.r * u_xx
+    fu = u_t + u * u_x - args.r * u_xx
+    # fu = u_t + u * u_x - 1/args.r * u_xx
 
     u0 = extra.init_u + 0.5 * dt * extra.init_ut
     fu = mod.where(it == 0, (u - u0[None, :]) * args.kimp, fu)
@@ -248,6 +249,7 @@ def main():
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
     try:
+        # arrays, optinfo = odil.util.optimize(args, args.optimizer, problem, state, callback)
         arrays, optinfo = odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
     except odil.optimizer.EarlyStopError as e:
         print(f"Early stop: {e}")
