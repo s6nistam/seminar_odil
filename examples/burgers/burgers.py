@@ -15,10 +15,20 @@ def get_exact(args, t, x, r):
     x = tf.Variable(x)
     u = tf.zeros_like(x)
     with tf.GradientTape() as tape:
-        u += (1/r)/(1 + t/r) * (x + tf.tan(0.5*x/(1 + t/r)))
+        u += (2 * r * np.pi * tf.exp(-(np.pi)**2 * r * t) * tf.sin(np.pi * x))/(2 + tf.exp(-(np.pi)**2 * r * t) * tf.cos(np.pi * x))
     ut = tape.gradient(u, t).numpy()
     u = u.numpy()
     return u, ut
+
+# def get_exact(args, t, x, r):
+#     t = tf.Variable(t)
+#     x = tf.Variable(x)
+#     u = tf.zeros_like(x)
+#     with tf.GradientTape() as tape:
+#         u += (1/r)/(1 + t/r) * (x + tf.tan(0.5*x/(1 + t/r)))
+#     ut = tape.gradient(u, t).numpy()
+#     u = u.numpy()
+#     return u, ut
 
 
 def operator_burgers(ctx):
@@ -84,7 +94,7 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--Nt", type=int, default=64, help="Grid size in t")
     parser.add_argument("--Nx", type=int, default=64, help="Grid size in x")
-    parser.add_argument("--r", type=float, default=1.0, help="Reynolds number parameter")
+    parser.add_argument("--r", type=float, default=0.02, help="Reynolds number parameter")
     parser.add_argument("--kimp", type=float, default=1, help="Factor to impose initial conditions")
     odil.util.add_arguments(parser)
     odil.linsolver.add_arguments(parser)
@@ -92,12 +102,12 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_burgers")
     parser.set_defaults(linsolver="direct")
-    # parser.set_defaults(optimizer="lbfgsb")
-    parser.set_defaults(optimizer="newton")
+    parser.set_defaults(optimizer="lbfgsb")
+    # parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="adam")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
-    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=100)
+    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
     return parser.parse_args()
 
 
@@ -196,8 +206,10 @@ def make_problem(args):
     domain = odil.Domain(
         cshape=(args.Nt, args.Nx),
         dimnames=("t", "x"),
-        lower=(0, -3),
-        upper=(1, 3),
+        # lower=(0, -3),
+        # upper=(1, 3),
+        lower=(0, 0),
+        upper=(10, 1),
         multigrid=args.multigrid,
         dtype=dtype,
     )
@@ -235,7 +247,12 @@ def main():
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    try:
+        arrays, optinfo = odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    except odil.optimizer.EarlyStopError as e:
+        print(f"Early stop: {e}")
+        plot_func(problem, state, args.epochs, args.frames)
+
 
     with open("done", "w"):
         pass
