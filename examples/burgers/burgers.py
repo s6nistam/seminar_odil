@@ -10,12 +10,12 @@ from odil import printlog
 from odil.runtime import tf
 
 
-def get_exact(args, t, x, r):
+def get_exact(args, t, x, r, a):
     t = tf.Variable(t)
     x = tf.Variable(x)
     u = tf.zeros_like(x)
     with tf.GradientTape() as tape:
-        u += (2 * r * np.pi * tf.exp(-(np.pi)**2 * r * t) * tf.sin(np.pi * x))/(2 + tf.exp(-(np.pi)**2 * r * t) * tf.cos(np.pi * x))
+        u += (2 * r * np.pi * tf.exp(-(np.pi)**2 * r * t) * tf.sin(np.pi * x))/(a + tf.exp(-(np.pi)**2 * r * t) * tf.cos(np.pi * x))
     ut = tape.gradient(u, t).numpy()
     u = u.numpy()
     return u, ut
@@ -95,7 +95,8 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--Nt", type=int, default=64, help="Grid size in t")
     parser.add_argument("--Nx", type=int, default=64, help="Grid size in x")
-    parser.add_argument("--r", type=float, default=0.02, help="Reynolds number parameter")
+    parser.add_argument("--r", type=float, default=0.02, help="Reynolds number/viscosity parameter")
+    parser.add_argument("--a", type=float, default=2, help="'a' parameter for the exact solution")
     parser.add_argument("--kimp", type=float, default=1, help="Factor to impose initial conditions")
     odil.util.add_arguments(parser)
     odil.linsolver.add_arguments(parser)
@@ -109,6 +110,7 @@ def parse_args():
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
+    # parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=5)
     return parser.parse_args()
 
 
@@ -220,10 +222,10 @@ def make_problem(args):
     # Evaluate exact solution, boundary and initial conditions.
     tt, xx = domain.points()
     t1, x1 = domain.points_1d()
-    ref_u, ref_ut = get_exact(args, tt, xx, args.r)
-    left_u, _ = get_exact(args, t1, t1 * 0 + domain.lower[1], args.r)
-    right_u, _ = get_exact(args, t1, t1 * 0 + domain.upper[1], args.r)
-    init_u, init_ut = get_exact(args, x1 * 0 + domain.lower[0], x1, args.r)
+    ref_u, ref_ut = get_exact(args, tt, xx, args.r, args.a)
+    left_u, _ = get_exact(args, t1, t1 * 0 + domain.lower[1], args.r, args.a)
+    right_u, _ = get_exact(args, t1, t1 * 0 + domain.upper[1], args.r, args.a)
+    init_u, init_ut = get_exact(args, x1 * 0 + domain.lower[0], x1, args.r, args.a)
 
     extra = argparse.Namespace()
 

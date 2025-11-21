@@ -1,0 +1,154 @@
+import os
+import subprocess
+import glob
+import time
+import psutil  # Add this import at the top
+
+
+def wait_for_children(parent_pid, timeout=30):
+    """Wait for all child processes of the given PID to terminate."""
+    try:
+        parent = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+        return
+    
+    children = parent.children(recursive=True)
+    if not children:
+        return
+    
+    # Terminate children gracefully
+    for child in children:
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+    
+    # Wait for termination
+    gone, alive = psutil.wait_procs(children, timeout=timeout)
+    
+    # Force kill any remaining processes
+    for child in alive:
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+
+
+try:
+    os.remove("/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers/errors.txt")
+except:
+    pass
+# Set PYTHONPATH in the environment (used by both scripts)
+os.environ["PYTHONPATH"] = "/home/nico/Desktop/Local/Seminar/seminar_odil/src"
+
+clear_command = ["rm", "-f", "u_*.png", "data_*.pickle", "ut_*.png"]
+
+# Define the base command for burgers.py (runs in odil/ dir)
+burgers_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/burgers/burgers.py"
+burgers_command = [
+    "python3", burgers_script
+]
+
+# Define the GIF script path and command (runs in out_burgers/ dir)
+# Use 'python3' since it works in the console
+gif_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers/image to gif.py"
+gif_command = [
+    "python3",  # ✅ This works in console → use it
+    gif_script,
+    "--output"
+]
+
+# List of values (powers of 2 from 4 to 256)
+# values = [16, 32, 64, 128, 256]
+a_values = [1, 2, 3, 4, 5, 6, 7]
+r_values = [1, 0.25, 0.0625, 0.015625, 0.00390625, 0.0009765625, 0.000244140625]
+
+# Use correct argument names (based on your error, they are --a and --r)
+a_arg = "--a"
+r_arg = "--r"
+
+# Run the loop
+for r in r_values:
+    # for a in [r]:
+    for a in a_values:
+
+        # time.sleep(5)
+        # CLEAN FILES USING PYTHON'S GLOB (FIXED)
+        out_burgers_dir = "/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers"
+        patterns = ["u_*.png", "data_*.pickle", "ut_*.png"]
+        
+        print("🧹 Cleaning previous files...")
+        files_removed = 0
+        for pattern in patterns:
+            # Get all matching files in out_burgers directory
+            files = glob.glob(os.path.join(out_burgers_dir, pattern))
+            for file_path in files:
+                try:
+                    os.remove(file_path)
+                    print(f"  Removed: {os.path.basename(file_path)}")
+                    files_removed += 1
+                except Exception as e:
+                    print(f"  ⚠️ Failed to remove {file_path}: {str(e)}")
+        
+        if files_removed == 0:
+            print("  No files to clean")
+
+        # Build command with correct args
+        cmd = burgers_command + [
+            a_arg, str(a),
+            r_arg, str(r)
+        ]
+        
+
+        # Build command with correct args
+        cmd = burgers_command + [
+            a_arg, str(a),
+            r_arg, str(r),
+            "--Nt", "256",
+            "--Nx", "256"
+        ]
+        print(f"🚀 Running burgers.py: a={a}, r={r}")
+        proc = subprocess.Popen(
+            cmd,
+            cwd="/home/nico/Desktop/Local/Seminar/seminar_odil",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        try:
+            # Wait for main process to finish
+            stdout, stderr = proc.communicate(timeout=None)
+            if proc.returncode != 0:
+                print(f"❌ burgers.py failed with return code {proc.returncode}")
+                print(f"Stdout: {stdout.decode()}")
+                print(f"Stderr: {stderr.decode()}")
+                # continue
+        finally:
+            # CRITICAL: Wait for all child processes
+            wait_for_children(proc.pid)
+            print(f"✅ burgers.py and all child processes completed for a={a}, r={r}")
+
+        subprocess.run(
+            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"a{a:03d}r{r:03f} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+            cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
+            check=True,
+            shell=True
+        )
+
+        # Generate GIF
+        output_gif = f"a{a:03d}r{r:03f}.gif"
+        gif_full_cmd = gif_command + [output_gif]  # No extra quotes!
+        
+        print(f"🎨 Generating GIF: {' '.join(gif_full_cmd)}")
+        try:
+            # Run in out_burgers/ directory
+            subprocess.run(
+                gif_full_cmd,
+                cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"❌ GIF generation failed with return code {e.returncode}")
+            continue
+
+print("✅ All tasks completed.")
