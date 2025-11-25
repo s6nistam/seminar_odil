@@ -365,8 +365,8 @@ def main():
     problem, state = make_problem(args)
     global u_fd
     global ut_fd
-    u_fd, ut_fd = solve_fd_dirichlet(problem.domain)
-    # u_fd, ut_fd = solve_fd_extrap(problem.domain)
+    # u_fd, ut_fd = solve_fd_strong_dirichlet(problem.domain)
+    u_fd, ut_fd = solve_fd_ghosts_cells(problem.domain)
     print(u_fd.shape, ut_fd.shape, "fd")
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
