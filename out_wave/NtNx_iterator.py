@@ -45,8 +45,8 @@ clear_command = ["rm", "-f", "u_*.png", "data_*.pickle", "ut_*.png"]
 
 # Define the base command for wave.py (runs in odil/ dir)
 # wave_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/wave/wave.py"
-# wave_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/wave_fd/wave_fd.py"
-wave_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/wave_missing_values/wave.py"
+wave_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/wave_fd/wave_fd.py"
+# wave_script = "/home/nico/Desktop/Local/Seminar/seminar_odil/examples/wave_missing_values/wave.py"
 wave_command = [
     "python3", wave_script
 ]
@@ -62,7 +62,7 @@ gif_command = [
 
 # List of values (powers of 2 from 4 to 256)
 # values = [16, 32, 64, 128, 256]
-values = [4, 8, 16, 32, 64, 128, 256]
+values = [16, 32, 64, 128, 256]
 
 # Use correct argument names (based on your error, they are --Nt and --Nx)
 Nt_arg = "--Nt"

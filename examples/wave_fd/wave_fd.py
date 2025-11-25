@@ -98,12 +98,12 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    parser.set_defaults(optimizer="lbfgsb")
-    # parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="lbfgsb")
+    parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="adam")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
-    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
 
@@ -193,10 +193,12 @@ def get_error_fd(domain):
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
     t_upper, x_upper = domain.upper
-    x = np.linspace(x_lower, x_upper, Nx)
-    t = np.linspace(t_lower, t_upper, Nt)
+    dt, dx = domain.step()
+    # x = np.linspace(x_lower, x_upper, Nx)
+    # t = np.linspace(t_lower, t_upper, Nt)
+    t, x = domain.points_1d()
     global u_fd
-    U_exact_final, _ = get_exact([], x * 0 + t_lower, x)
+    U_exact_final, _ = get_exact([], x * 0 + t_upper - 0.5 * dt, x)
     
     # Calculate errors
     u_error = np.abs(u_fd[-1,:] - U_exact_final)
@@ -244,6 +246,7 @@ def make_problem(args):
     tt, xx = domain.points()
     t1, x1 = domain.points_1d()
     ref_u, ref_ut = get_exact(args, tt, xx)
+    print(ref_u.shape, ref_ut.shape, "ref")
     left_u, _ = get_exact(args, t1, t1 * 0 + domain.lower[1])
     right_u, _ = get_exact(args, t1, t1 * 0 + domain.upper[1])
     init_u, init_ut = get_exact(args, x1 * 0 + domain.lower[0], x1)
@@ -257,7 +260,8 @@ def make_problem(args):
     add_extra(locals(), "args", "ref_u", "ref_ut", "left_u", "right_u", "init_u", "init_ut")
 
     state = odil.State()
-    # state.fields["u"], _ = solve_fd(domain)
+    # state.fields["u"], _ = solve_fd_extrap(domain)
+    # state.fields["u"], _ = solve_fd_dirichlet(domain)
     state.fields["u"] = np.zeros(domain.cshape)
     # state.fields["u"] = np.array([[1 if i == 0 else 0 for j in range(domain.cshape[1])]for i in range(domain.cshape[0])])
     # state.fields["u"] = np.random.normal(size=domain.cshape)
@@ -265,28 +269,25 @@ def make_problem(args):
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
 
-def solve_fd(domain):
+def solve_fd_dirichlet(domain):
     # Unpack domain parameters
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
     t_upper, x_upper = domain.upper
-    dt = (t_upper - t_lower) / (Nt - 1)
-    dx = (x_upper - x_lower) / (Nx - 1)
+    dt, dx = domain.step()
     
     # Create grids
-    x = np.linspace(x_lower, x_upper, Nx)
-    t = np.linspace(t_lower, t_upper, Nt)
-
+    t, x = domain.points_1d()
     
     u0, ut0 = get_exact([], x * 0 + t_lower, x)
-    left_u, _ = get_exact([], t, t * 0 + x_lower)
-    right_u, _ = get_exact([], t, t * 0 + x_upper)
+    left_u, _ = get_exact([], t, t * 0 + x_lower + 0.5 * dx)
+    right_u, _ = get_exact([], t, t * 0 + x_upper - 0.5 * dx)
     
     # Initialize solution arrays
     u = np.zeros((Nt, Nx))
     ut = np.zeros((Nt, Nx))
     
-    u[0, :] = u0
+    u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
 
     # Apply Dirichlet boundary conditions
     u[:, 0] = left_u
@@ -296,17 +297,66 @@ def solve_fd(domain):
     # Interior points for n=1 using Taylor expansion
     for i in range(1, Nx - 1):
         # u(x, Δt) ≈ u(x,0) + Δt*u_t(x,0) + (Δt²/2)*u_xx(x,0)
-        u[1, i] = u[0, i] + dt * ut0[i] + (dt**2 / (2 * dx**2)) * (u[0, i+1] - 2*u[0, i] + u[0, i-1])
+        u[1, i] = u[0, i] + dt * ut[0, i] + (dt**2 / (2 * dx**2)) * (u[0, i+1] - 2*u[0, i] + u[0, i-1])
     
     for n in range(1, Nt - 1):
         # Update interior points using finite differences
         for i in range(1, Nx - 1):
             u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
 
-    # # Compute ut using central differences in time
-    # ut[1:-1, :] = (u[2:, :] - u[:-2, :]) / (2*dt)
-    # ut[0, :] = (u[1, :] - u[0, :]) / dt
-    # ut[-1, :] = (u[-1, :] - u[-2, :]) / dt
+    return u, get_uut(domain, u0, u)
+
+def solve_fd_extrap(domain):
+    # Unpack domain parameters
+    Nt, Nx = domain.cshape
+    t_lower, x_lower = domain.lower
+    t_upper, x_upper = domain.upper
+    dt, dx = domain.step()
+    
+    # Create grids
+    t, x = domain.points_1d()
+    print(t[-1], x[-1], "points")
+
+    
+    u0, ut0 = get_exact([], x * 0 + t_lower, x)
+    left_u, _ = get_exact([], t, t * 0 + x_lower)
+    right_u, _ = get_exact([], t, t * 0 + x_upper)
+    
+    # Initialize solution arrays
+    u = np.zeros((Nt, Nx))
+    ut = np.zeros((Nt, Nx))
+    u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
+    
+    # Apply boundary conditions using extrapolation
+    # Ghost values must be built from boundary data at the same time level
+    extrap = odil.core.extrap_quadh
+    ghost_left = np.zeros(Nt)
+    ghost_right = np.zeros(Nt)
+    # Ghosts for time level 0 (used to compute u[1]) — use left_u[0]/right_u[0]
+    ghost_left[0] = extrap(u[0, 1], u[0, 0], left_u[0])
+    ghost_right[0] = extrap(u[0, -2], u[0, -1], right_u[0])
+
+    # Compute first time step using exact initial derivative    
+    # Interior points for n=1 using Taylor expansion
+
+    u[1, 0] = u[0, 0] + dt * ut[0, 0] + (dt**2 / (2 * dx**2)) * (u[0, 1] - 2*u[0, 0] + ghost_left[0])
+    for i in range(1, Nx - 1):
+        # u(x, Δt) ≈ u(x,0) + Δt*u_t(x,0) + (Δt²/2)*u_xx(x,0)
+        u[1, i] = u[0, i] + dt * ut[0, i] + (dt**2 / (2 * dx**2)) * (u[0, i+1] - 2*u[0, i] + u[0, i-1])
+    u[1, -1] = u[0, -1] + dt * ut[0, -1] + (dt**2 / (2 * dx**2)) * (ghost_right[0] - 2*u[0, -1] + u[0, -2])
+    
+    for n in range(1, Nt - 1):
+        # Compute ghosts for this time level from already-known u[n, :] and
+        # from boundary values at the same time `left_u[n]` / `right_u[n]`.
+        ghost_left[n] = extrap(u[n, 1], u[n, 0], left_u[n])
+        ghost_right[n] = extrap(u[n, -2], u[n, -1], right_u[n])
+
+        # Update interior points using finite differences
+        u[n+1, 0] = 2*u[n, 0] - u[n-1, 0] + (dt**2 / dx**2) * (u[n, 1] - 2*u[n, 0] + ghost_left[n])
+        for i in range(1, Nx - 1):
+            u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
+        u[n+1, -1] = 2*u[n, -1] - u[n-1, -1] + (dt**2 / dx**2) * (ghost_right[n] - 2*u[n, -1] + u[n, -2])
+
     return u, get_uut(domain, u0, u)
     
 u_fd = None
@@ -319,12 +369,14 @@ def main():
     problem, state = make_problem(args)
     global u_fd
     global ut_fd
-    u_fd, ut_fd = solve_fd(problem.domain)
+    u_fd, ut_fd = solve_fd_dirichlet(problem.domain)
+    # u_fd, ut_fd = solve_fd_extrap(problem.domain)
+    print(u_fd.shape, ut_fd.shape, "fd")
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    # odil.util.optimize(args, args.optimizer, problem, state, callback)
-    odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    odil.util.optimize(args, args.optimizer, problem, state, callback)
+    # odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
 
     with open("done", "w"):
         pass
