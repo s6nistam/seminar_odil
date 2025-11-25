@@ -269,7 +269,7 @@ def make_problem(args):
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
 
-def solve_fd_dirichlet(domain):
+def solve_fd_strong_dirichlet(domain):
     # Unpack domain parameters
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
@@ -289,7 +289,7 @@ def solve_fd_dirichlet(domain):
     
     u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
 
-    # Apply Dirichlet boundary conditions
+    # Apply strong Dirichlet boundary conditions
     u[:, 0] = left_u
     u[:, -1] = right_u
     
@@ -306,7 +306,7 @@ def solve_fd_dirichlet(domain):
 
     return u, get_uut(domain, u0, u)
 
-def solve_fd_extrap(domain):
+def solve_fd_ghosts_cells(domain):
     # Unpack domain parameters
     Nt, Nx = domain.cshape
     t_lower, x_lower = domain.lower
@@ -327,12 +327,10 @@ def solve_fd_extrap(domain):
     ut = np.zeros((Nt, Nx))
     u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
     
-    # Apply boundary conditions using extrapolation
-    # Ghost values must be built from boundary data at the same time level
+    # Apply Dirichlet boundary conditions using ghost cells
     extrap = odil.core.extrap_quadh
     ghost_left = np.zeros(Nt)
     ghost_right = np.zeros(Nt)
-    # Ghosts for time level 0 (used to compute u[1]) — use left_u[0]/right_u[0]
     ghost_left[0] = extrap(u[0, 1], u[0, 0], left_u[0])
     ghost_right[0] = extrap(u[0, -2], u[0, -1], right_u[0])
 
@@ -346,8 +344,6 @@ def solve_fd_extrap(domain):
     u[1, -1] = u[0, -1] + dt * ut[0, -1] + (dt**2 / (2 * dx**2)) * (ghost_right[0] - 2*u[0, -1] + u[0, -2])
     
     for n in range(1, Nt - 1):
-        # Compute ghosts for this time level from already-known u[n, :] and
-        # from boundary values at the same time `left_u[n]` / `right_u[n]`.
         ghost_left[n] = extrap(u[n, 1], u[n, 0], left_u[n])
         ghost_right[n] = extrap(u[n, -2], u[n, -1], right_u[n])
 
