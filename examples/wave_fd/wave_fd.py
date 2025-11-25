@@ -62,12 +62,12 @@ def plot_exact(
         origin="lower",
         aspect=aspect,
     )
-    ax.set_xlabel("x")
-    ax.set_ylabel("t", labelpad=6)
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$t$", labelpad=6)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     # larger colorbar so it spans the main axes height
-    fig.colorbar(ax.images[0], ax=ax, fraction=0.08, pad=0.02)
+    fig.colorbar(ax.images[0], ax=ax, fraction=0.08, pad=0.02, ticks=[ulim[0], ulim[1]])
 
     if path is not None:
         fig.savefig(path, dpi=dpi, pad_inches=0.01)
@@ -168,6 +168,7 @@ def parse_args():
     # parser.set_defaults(optimizer="adam")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
+    # parser.set_defaults(plotext="svg", plot_title=1)
     parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
@@ -226,7 +227,7 @@ def plot_func(problem, state, epoch, frame, cbinfo=None):
     plot_exact(
         domain,
         u_ref=ref_u,
-        path="exact.png",
+        path="exact_wave.svg",
         cmap="RdBu_r",
         transpose=True,
         umin=-umax,
