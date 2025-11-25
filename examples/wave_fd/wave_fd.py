@@ -8,7 +8,72 @@ import numpy as np
 import odil
 from odil import printlog
 from odil.runtime import tf
+import matplotlib.pyplot as plt
 
+
+def plot_exact(
+    domain,
+    u_ref,
+    path=None,
+    umin=None,
+    umax=None,
+    transpose=False,
+    dpi=300,
+    aspect="auto",
+    interpolation="nearest",
+    cmap=None,
+):
+    if transpose:
+        # Index zero drawn as vertical, rotate by 90 degrees counterclockwise.
+        ix = 1
+        iy = 0
+        u_ref = u_ref.T
+    else:
+        # Index zero drawn as horizontal.
+        ix = 0
+        iy = 1
+    extent = [domain.lower[ix], domain.upper[ix], domain.lower[iy], domain.upper[iy]]
+    fig = plt.figure()
+    # outer grid: left for main image, right for stacked slices
+    outer = fig.add_gridspec(1, 1)
+    xx, yy = domain.points_1d(ix, iy)
+    xx, yy = np.array(xx), np.array(yy)
+    xlim = (domain.lower[ix], domain.upper[ix])
+    ylim = (domain.lower[iy], domain.upper[iy])
+    if umin is None:
+        umin = u_ref.min()
+    if umax is None:
+        umax = u_ref.max()
+    if cmap is None:
+        cmap = "viridis"
+    ulim = (umin, umax)
+    # main image occupies full height on the left
+    main_gs = outer[0, 0].subgridspec(1, 1)
+    ax = fig.add_subplot(main_gs[:, 0])
+    ax.spines[:].set_visible(True)
+    ax.spines[:].set_linewidth(0.25)
+    ax.imshow(
+        u_ref.T,
+        interpolation=interpolation,
+        cmap=cmap,
+        vmin=ulim[0],
+        vmax=ulim[1],
+        extent=extent,
+        origin="lower",
+        aspect=aspect,
+    )
+    ax.set_xlabel("x")
+    ax.set_ylabel("t", labelpad=6)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    # larger colorbar so it spans the main axes height
+    fig.colorbar(ax.images[0], ax=ax, fraction=0.08, pad=0.02)
+
+    if path is not None:
+        fig.savefig(path, dpi=dpi, pad_inches=0.01)
+        plt.close(fig)
+    else:
+        return fig
 
 def get_exact(args, t, x):
     t = tf.Variable(t)
@@ -152,6 +217,17 @@ def plot_func(problem, state, epoch, frame, cbinfo=None):
         title=title0,
         cmap="RdBu_r",
         nslices=5,
+        transpose=True,
+        umin=-umax,
+        umax=umax,
+    )
+
+
+    plot_exact(
+        domain,
+        u_ref=ref_u,
+        path="exact.png",
+        cmap="RdBu_r",
         transpose=True,
         umin=-umax,
         umax=umax,
