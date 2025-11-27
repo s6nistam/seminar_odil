@@ -335,9 +335,10 @@ def make_problem(args):
     state = odil.State()
     # state.fields["u"], _ = solve_fd_extrap(domain)
     # state.fields["u"], _ = solve_fd_dirichlet(domain)
-    state.fields["u"] = np.zeros(domain.cshape)
+    # state.fields["u"] = np.zeros(domain.cshape)
     # state.fields["u"] = np.array([[1 if i == 0 else 0 for j in range(domain.cshape[1])]for i in range(domain.cshape[0])])
     # state.fields["u"] = np.random.normal(size=domain.cshape)
+    state.fields["u"] = np.random.uniform(low= -1, high = 1, size=domain.cshape)
     state = domain.init_state(state)
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
