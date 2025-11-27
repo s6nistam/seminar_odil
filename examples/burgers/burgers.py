@@ -46,7 +46,6 @@ def operator_burgers(ctx):
             ctx.field(key, 0, -1),
             ctx.field(key, 0, 1),
             ctx.field(key, -1, 0),
-            ctx.field(key, -2, 0),
         ]
         return st
 
@@ -61,7 +60,7 @@ def operator_burgers(ctx):
 
     u_st = stencil_var("u")
     apply_bc_u(u_st)
-    u, uxm, uxp, utm, utmm = u_st
+    u, uxm, uxp, utm = u_st
 
     u_t = (u - utm) / dt
     u_x = (uxp - uxm) / (2 * dx)
