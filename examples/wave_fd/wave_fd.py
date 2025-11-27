@@ -163,14 +163,14 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    parser.set_defaults(optimizer="lbfgsb")
-    # parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="lbfgsb")
+    parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="adam")
     # parser.set_defaults(optimizer="gd")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
 
@@ -267,21 +267,17 @@ def get_error_t_end(domain, extra, state, key):
         return np.sqrt(np.mean((state_u[-1,:] - ref_u[-1,:]) ** 2))
     return None
 
-def get_error_fd(domain):
-    Nt, Nx = domain.cshape
-    t_lower, x_lower = domain.lower
-    t_upper, x_upper = domain.upper
-    dt, dx = domain.step()
-    # x = np.linspace(x_lower, x_upper, Nx)
-    # t = np.linspace(t_lower, t_upper, Nt)
-    t, x = domain.points_1d()
+def get_error_fd(domain, extra):
+    ref_u = extra.ref_u
     global u_fd
-    U_exact_final, _ = get_exact([], x * 0 + t_upper - 0.5 * dt, x)
-    
-    # Calculate errors
-    u_error = np.abs(u_fd[-1,:] - U_exact_final)
-    max_u_error = np.max(u_error)
-    return max_u_error
+    u_error = np.sqrt(np.mean((u_fd - ref_u)**2))
+    return u_error
+
+def get_error_fd_t_end(domain, extra):
+    ref_u = extra.ref_u
+    global u_fd
+    u_error = np.sqrt(np.mean((u_fd[-1,:] - ref_u[-1,:])**2))
+    return u_error
 
 
 def history_func(problem, state, epoch, history, cbinfo):
@@ -292,7 +288,7 @@ def history_func(problem, state, epoch, history, cbinfo):
         error = get_error(domain, extra, state, key)
         if error is not None:
             history.append("error_" + key, error)
-    history.append("error_" + "u_fd", get_error_fd(domain))
+    history.append("error_" + "u_fd", get_error_fd(domain, extra))
 
 
 def report_func(problem, state, epoch, cbinfo):
@@ -303,7 +299,7 @@ def report_func(problem, state, epoch, cbinfo):
         error = get_error(domain, extra, state, key)
         if error is not None:
             res[key] = error
-    res["u_fd"] = get_error_fd(domain)
+    res["u_fd"] = get_error_fd(domain, extra)
     printlog("error: " + ", ".join("{}:{:.5g}".format(*item) for item in res.items()))
 
 
