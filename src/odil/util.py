@@ -187,6 +187,80 @@ def optimize_newton(args, problem, state, callback=None, **kwargs):
     return arrays, optinfo
 
 
+def optimize_newton_global(args, problem, state, callback=None, **kwargs):
+    """Exact Newton direction with a backtracking line-search globalization.
+
+    Uses the Newton step from linearization but performs a scalar line search
+    (backtracking) on the full state vector to ensure global convergence.
+    """
+    domain = problem.domain
+
+    def eval_pinfo(state):
+        loss, _, terms, names, norms = problem.eval_loss_grad(state)
+        pinfo = {"terms": terms, "names": names, "norms": norms, "loss": loss}
+        return pinfo
+
+    from .linsolver import solve
+
+    opt = Optimizer(name="newton_global", displayname="Newton(global)")
+    printlog("Running {} optimizer".format(opt.displayname))
+
+    # Compute loss and residuals with initial state, to be used by callback.
+    pinfo = eval_pinfo(state)
+    if callback:
+        callback(state, args.epoch_start, pinfo)
+
+    # Line-search parameters (can be overridden via kwargs)
+    maxls = int(kwargs.get("maxls", 20))
+    ls_factor = float(kwargs.get("ls_factor", 0.5))
+
+    for epoch in range(args.epoch_start, args.epochs):
+        vector, matrix = problem.linearize(state)
+        opt.evals += 1
+        linstatus = dict()
+        # Full Newton step (exact direction)
+        delta = solve(matrix, -vector, args, linstatus, args.linsolver)
+        if args.linsolver_verbose:
+            printlog(linstatus)
+
+        # Pack current state and compute current loss
+        packed = domain.pack_state(state)
+        p0 = eval_pinfo(state)
+        f0 = float(p0.get("loss", 0.0))
+
+        # Backtracking line search along delta (require monotonic decrease)
+        alpha = 1.0
+        accepted = False
+        for ls in range(maxls):
+            trial = packed + alpha * delta
+            domain.unpack_state(trial, state)
+            p_trial = eval_pinfo(state)
+            f_trial = float(p_trial.get("loss", 0.0))
+            if f_trial <= f0 or alpha <= 1e-12:
+                # accept the step if loss decreased (or alpha got too small)
+                accepted = True
+                pinfo = p_trial
+                break
+            # otherwise reduce step and retry
+            alpha *= ls_factor
+
+        if not accepted:
+            # restore original state if nothing accepted
+            domain.unpack_state(packed, state)
+            pinfo = p0
+
+        # Attach linear solver info and call callback
+        if callback:
+            pinfo["linsolver"] = linstatus
+            callback(state, epoch + 1, pinfo)
+
+    arrays = domain.arrays_from_state(state)
+    optinfo = argparse.Namespace()
+    optinfo.epochs = args.epochs
+    optinfo.evals = args.epochs
+    return arrays, optinfo
+
+
 def optimize_grad(args, optname, problem, state, callback=None, **kwargs):
     domain = problem.domain
     mod = domain.mod
@@ -243,6 +317,8 @@ def optimize_grad(args, optname, problem, state, callback=None, **kwargs):
 def optimize(args, optname, problem, state, callback, **kwargs):
     if optname == "newton":
         return optimize_newton(args, problem, state, callback, **kwargs)
+    if optname == "newton_global":
+        return optimize_newton_global(args, problem, state, callback, **kwargs)
     return optimize_grad(args, optname, problem, state, callback, **kwargs)
 
 
