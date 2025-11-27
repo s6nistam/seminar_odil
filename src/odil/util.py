@@ -210,48 +210,69 @@ def optimize_newton_global(args, problem, state, callback=None, **kwargs):
     if callback:
         callback(state, args.epoch_start, pinfo)
 
-    # Line-search parameters (can be overridden via kwargs)
+    # Line-search and Armijo parameters (configurable via kwargs)
     maxls = int(kwargs.get("maxls", 20))
     ls_factor = float(kwargs.get("ls_factor", 0.5))
+    armijo_c = float(kwargs.get("armijo_c", 1e-4))
+    rho = float(kwargs.get("rho", 1e-4))
 
     for epoch in range(args.epoch_start, args.epochs):
+        # Evaluate current loss and gradient
+        loss0, grads_list, terms, names, norms = problem.eval_loss_grad(state)
+        f0 = float(loss0)
+        # Flatten gradient to packed form
+        g_packed = np.concatenate([np.reshape(g, -1) for g in grads_list]) if len(grads_list) else np.array([])
+        gnorm2 = float(np.dot(g_packed, g_packed)) if g_packed.size else 0.0
+
+        # Stop if gradient is (near) zero
+        if gnorm2 == 0.0:
+            if callback:
+                pinfo = {"terms": terms, "names": names, "norms": norms, "loss": loss0}
+                callback(state, epoch, pinfo)
+            break
+
+        # Try to compute Newton direction from linearization (exact direction used)
         vector, matrix = problem.linearize(state)
         opt.evals += 1
         linstatus = dict()
-        # Full Newton step (exact direction)
-        delta = solve(matrix, -vector, args, linstatus, args.linsolver)
-        if args.linsolver_verbose:
-            printlog(linstatus)
+        try:
+            s = solve(matrix, -vector, args, linstatus, args.linsolver)
+        except Exception:
+            s = None
+        if s is None:
+            # fallback to negative gradient
+            s = -g_packed
 
-        # Pack current state and compute current loss
+        # Ensure descent: if g^T s > -rho * ||g||^2 then use steepest descent
+        gTs = float(np.dot(g_packed, s))
+        if gTs > -rho * gnorm2:
+            s = -g_packed
+            gTs = float(np.dot(g_packed, s))
+
+        # Armijo backtracking line search using directional derivative g^T s
         packed = domain.pack_state(state)
-        p0 = eval_pinfo(state)
-        f0 = float(p0.get("loss", 0.0))
-
-        # Backtracking line search along delta (require monotonic decrease)
         alpha = 1.0
         accepted = False
         for ls in range(maxls):
-            trial = packed + alpha * delta
+            trial = packed + alpha * s
             domain.unpack_state(trial, state)
-            p_trial = eval_pinfo(state)
-            f_trial = float(p_trial.get("loss", 0.0))
-            if f_trial <= f0 or alpha <= 1e-12:
-                # accept the step if loss decreased (or alpha got too small)
+            f_trial, _, terms_trial, names_trial, norms_trial = problem.eval_loss_grad(state)
+            f_trial = float(f_trial)
+            if f_trial <= f0 + armijo_c * alpha * gTs:
                 accepted = True
-                pinfo = p_trial
+                pinfo = {"terms": terms_trial, "names": names_trial, "norms": norms_trial, "loss": f_trial}
                 break
-            # otherwise reduce step and retry
             alpha *= ls_factor
 
         if not accepted:
-            # restore original state if nothing accepted
+            # restore original state
             domain.unpack_state(packed, state)
-            pinfo = p0
+            pinfo = {"terms": terms, "names": names, "norms": norms, "loss": loss0}
 
         # Attach linear solver info and call callback
         if callback:
             pinfo["linsolver"] = linstatus
+            pinfo["alpha"] = alpha
             callback(state, epoch + 1, pinfo)
 
     arrays = domain.arrays_from_state(state)

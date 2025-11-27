@@ -171,7 +171,7 @@ def parse_args():
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
+    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=10)
     return parser.parse_args()
 
 
@@ -450,8 +450,8 @@ def main():
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    odil.util.optimize(args, args.optimizer, problem, state, callback)
-    # odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    # odil.util.optimize(args, args.optimizer, problem, state, callback)
+    odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
 
     with open("done", "w"):
         pass
