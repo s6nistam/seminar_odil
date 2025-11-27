@@ -403,7 +403,8 @@ def solve_fd_ghosts_cells(domain):
     # Initialize solution arrays
     u = np.zeros((Nt, Nx))
     ut = np.zeros((Nt, Nx))
-    u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
+    # u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
+    u[0, :] = u0 + 0.5 * dt * ut0
     
     # Apply Dirichlet boundary conditions using ghost cells
     extrap = odil.core.extrap_quadh
@@ -411,6 +412,11 @@ def solve_fd_ghosts_cells(domain):
     ghost_right = np.zeros(Nt)
     ghost_left[0] = extrap(u[0, 1], u[0, 0], left_u[0])
     ghost_right[0] = extrap(u[0, -2], u[0, -1], right_u[0])
+
+    uxx0 = (np.roll(u[0, :], -1) - 2 * u[0, :] + np.roll(u[0, :], 1)) / (dx**2)
+    uxx0[0] = (u[0, 1] - 2 * u[0, 0] + ghost_left[0]) / (dx**2)
+    uxx0[-1] = (ghost_right[0] - 2 * u[0, -1] + u[0, -2]) / (dx**2)
+    ut[0, :] = ut0 + 0.5 * dt * uxx0
 
     # Compute first time step using exact initial derivative    
     # Interior points for n=1 using Taylor expansion
