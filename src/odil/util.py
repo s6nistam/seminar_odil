@@ -214,7 +214,7 @@ def optimize_newton_global(args, problem, state, callback=None, **kwargs):
     maxls = int(kwargs.get("maxls", 20))
     ls_factor = float(kwargs.get("ls_factor", 0.5))
     armijo_c = float(kwargs.get("armijo_c", 1e-4))
-    rho = float(kwargs.get("rho", 1e-4))
+    rho = float(kwargs.get("rho", 0.25))
 
     for epoch in range(args.epoch_start, args.epochs):
         # Evaluate current loss and gradient

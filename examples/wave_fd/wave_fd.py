@@ -136,6 +136,8 @@ def operator_wave(ctx):
 
     res = [("fu", fu)]
 
+    # tf.print(mod.sqrt(mod.mean((fu) ** 2)))
+
     return res
 
 
@@ -164,14 +166,14 @@ def parse_args():
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
     # parser.set_defaults(optimizer="lbfgsb")
-    # parser.set_defaults(optimizer="newton")
-    parser.set_defaults(optimizer="newton_global")
+    parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="newton_global")
     # parser.set_defaults(optimizer="adam")
     # parser.set_defaults(optimizer="gd")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=10)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
 
@@ -334,12 +336,12 @@ def make_problem(args):
     add_extra(locals(), "args", "ref_u", "ref_ut", "left_u", "right_u", "init_u", "init_ut")
 
     state = odil.State()
-    # state.fields["u"], _ = solve_fd_extrap(domain)
-    # state.fields["u"], _ = solve_fd_dirichlet(domain)
-    # state.fields["u"] = np.zeros(domain.cshape)
+    # state.fields["u"], _ = solve_fd_strong_dirichlet(domain)
+    # state.fields["u"], _ = solve_fd_ghosts_cells(domain)
+    state.fields["u"] = np.zeros(domain.cshape)
     # state.fields["u"] = np.array([[1 if i == 0 else 0 for j in range(domain.cshape[1])]for i in range(domain.cshape[0])])
     # state.fields["u"] = np.random.normal(size=domain.cshape)
-    state.fields["u"] = np.random.uniform(low= -1, high = 1, size=domain.cshape)
+    # state.fields["u"] = np.random.uniform(low= -1, high = 1, size=domain.cshape)
     state = domain.init_state(state)
     problem = odil.Problem(operator_wave, domain, extra)
     return problem, state
@@ -432,7 +434,19 @@ def solve_fd_ghosts_cells(domain):
         for i in range(1, Nx - 1):
             u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
         u[n+1, -1] = 2*u[n, -1] - u[n-1, -1] + (dt**2 / dx**2) * (ghost_right[n] - 2*u[n, -1] + u[n, -2])
-
+    # print(np.max(np.abs(u)))
+    # for n in range(Nt):
+    #     for i in range(Nx):
+    #         if u[n,i] > 1 :
+    #             u[n,i] = 1
+    #         if u[n,i] < -1 :
+    #             u[n,i] = -1
+    # for n in range(Nt):
+    #     for i in range(Nx):
+    #         if ut[n,i] > 1 :
+    #             ut[n,i] = 1
+    #         if ut[n,i] < -1 :
+    #             ut[n,i] = -1
     return u, get_uut(domain, u0, u)
     
 u_fd = None
