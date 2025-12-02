@@ -131,7 +131,7 @@ def operator_burgers(ctx):
     u_x = (uxp - uxm) / (2 * dx)
     u_xx = (uxm - 2 * utm + uxp) / (dx**2)
 
-    fu = u_t + u * u_x - args.r * u_xx
+    fu = u_t + utm * u_x - args.r * u_xx
     # fu = u_t + u * u_x - 1/args.r * u_xx
 
     u0 = extra.init_u + 0.5 * dt * extra.init_ut
