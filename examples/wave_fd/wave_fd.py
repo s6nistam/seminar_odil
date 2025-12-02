@@ -177,7 +177,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def plot_func(problem, state, epoch, frame, cbinfo=None):
+def plot_func(problem, state, epoch, frame, cbinfo=None, plotext=None):
     from odil.plot import plot_1d_fd
 
     domain = problem.domain
@@ -185,10 +185,13 @@ def plot_func(problem, state, epoch, frame, cbinfo=None):
     mod = domain.mod
     args = extra.args
 
+    if plotext is None:
+        plotext = args.plotext
+
     title0 = "u epoch={:05d}".format(epoch) if args.plot_title else None
     title1 = "ut epoch={:05d}".format(epoch) if args.plot_title else None
-    path0 = "u_{:05d}.{}".format(frame, args.plotext)
-    path1 = "ut_{:05d}.{}".format(frame, args.plotext)
+    path0 = "u_{:05d}.{}".format(frame, plotext)
+    path1 = "ut_{:05d}.{}".format(frame, plotext)
     printlog(path0, path1)
 
     ref_u, ref_ut = extra.ref_u, extra.ref_ut
