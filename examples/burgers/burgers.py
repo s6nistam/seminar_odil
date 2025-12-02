@@ -108,8 +108,8 @@ def operator_burgers(ctx):
     def stencil_var(key):
         st = [
             ctx.field(key, 0, 0),
-            ctx.field(key, 0, -1),
-            ctx.field(key, 0, 1),
+            ctx.field(key, -1, -1),
+            ctx.field(key, -1, 1),
             ctx.field(key, -1, 0),
         ]
         return st
@@ -129,7 +129,7 @@ def operator_burgers(ctx):
 
     u_t = (u - utm) / dt
     u_x = (uxp - uxm) / (2 * dx)
-    u_xx = (uxm - 2 * u + uxp) / (dx**2)
+    u_xx = (uxm - 2 * utm + uxp) / (dx**2)
 
     fu = u_t + u * u_x - args.r * u_xx
     # fu = u_t + u * u_x - 1/args.r * u_xx
