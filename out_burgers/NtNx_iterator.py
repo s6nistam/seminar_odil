@@ -70,83 +70,83 @@ Nx_arg = "--Nx"
 for Nx in values:
     # for Nt in [Nx]:
     for Nt in values:
-        if Nt <= Nx:  # Match your pattern: 4,4 8,4 8,8 16,4 16,8 16,16 ...
+        # if Nt <= Nx:  # Match your pattern: 4,4 8,4 8,8 16,4 16,8 16,16 ...
 
-            # time.sleep(5)
-            # CLEAN FILES USING PYTHON'S GLOB (FIXED)
-            out_burgers_dir = "/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers"
-            patterns = ["u_*.png", "data_*.pickle", "ut_*.png"]
-            
-            print("🧹 Cleaning previous files...")
-            files_removed = 0
-            for pattern in patterns:
-                # Get all matching files in out_burgers directory
-                files = glob.glob(os.path.join(out_burgers_dir, pattern))
-                for file_path in files:
-                    try:
-                        os.remove(file_path)
-                        print(f"  Removed: {os.path.basename(file_path)}")
-                        files_removed += 1
-                    except Exception as e:
-                        print(f"  ⚠️ Failed to remove {file_path}: {str(e)}")
-            
-            if files_removed == 0:
-                print("  No files to clean")
+        # time.sleep(5)
+        # CLEAN FILES USING PYTHON'S GLOB (FIXED)
+        out_burgers_dir = "/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers"
+        patterns = ["u_*.png", "data_*.pickle", "ut_*.png"]
+        
+        print("🧹 Cleaning previous files...")
+        files_removed = 0
+        for pattern in patterns:
+            # Get all matching files in out_burgers directory
+            files = glob.glob(os.path.join(out_burgers_dir, pattern))
+            for file_path in files:
+                try:
+                    os.remove(file_path)
+                    print(f"  Removed: {os.path.basename(file_path)}")
+                    files_removed += 1
+                except Exception as e:
+                    print(f"  ⚠️ Failed to remove {file_path}: {str(e)}")
+        
+        if files_removed == 0:
+            print("  No files to clean")
 
-            # Build command with correct args
-            cmd = burgers_command + [
-                Nt_arg, str(Nt),
-                Nx_arg, str(Nx)
-            ]
-            
+        # Build command with correct args
+        cmd = burgers_command + [
+            Nt_arg, str(Nt),
+            Nx_arg, str(Nx)
+        ]
+        
 
-            # Build command with correct args
-            cmd = burgers_command + [
-                Nt_arg, str(Nt),
-                Nx_arg, str(Nx)
-            ]
-            print(f"🚀 Running burgers.py: Nt={Nt}, Nx={Nx}")
-            proc = subprocess.Popen(
-                cmd,
-                cwd="/home/nico/Desktop/Local/Seminar/seminar_odil",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            
-            try:
-                # Wait for main process to finish
-                stdout, stderr = proc.communicate(timeout=None)
-                if proc.returncode != 0:
-                    print(f"❌ burgers.py failed with return code {proc.returncode}")
-                    print(f"Stdout: {stdout.decode()}")
-                    print(f"Stderr: {stderr.decode()}")
-                    # continue
-            finally:
-                # CRITICAL: Wait for all child processes
-                wait_for_children(proc.pid)
-                print(f"✅ burgers.py and all child processes completed for Nt={Nt}, Nx={Nx}")
+        # Build command with correct args
+        cmd = burgers_command + [
+            Nt_arg, str(Nt),
+            Nx_arg, str(Nx)
+        ]
+        print(f"🚀 Running burgers.py: Nt={Nt}, Nx={Nx}")
+        proc = subprocess.Popen(
+            cmd,
+            cwd="/home/nico/Desktop/Local/Seminar/seminar_odil",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        try:
+            # Wait for main process to finish
+            stdout, stderr = proc.communicate(timeout=None)
+            if proc.returncode != 0:
+                print(f"❌ burgers.py failed with return code {proc.returncode}")
+                print(f"Stdout: {stdout.decode()}")
+                print(f"Stderr: {stderr.decode()}")
+                # continue
+        finally:
+            # CRITICAL: Wait for all child processes
+            wait_for_children(proc.pid)
+            print(f"✅ burgers.py and all child processes completed for Nt={Nt}, Nx={Nx}")
 
+        subprocess.run(
+            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"Nt{Nt:03d}Nx{Nx:03d} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+            cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
+            check=True,
+            shell=True
+        )
+
+        # Generate GIF
+        output_gif = f"Nt{Nt:03d}Nx{Nx:03d}.gif"
+        gif_full_cmd = gif_command + [output_gif]  # No extra quotes!
+        
+        print(f"🎨 Generating GIF: {' '.join(gif_full_cmd)}")
+        try:
+            # Run in out_burgers/ directory
             subprocess.run(
-                "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"Nt{Nt:03d}Nx{Nx:03d} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+                gif_full_cmd,
                 cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
-                check=True,
-                shell=True
+                check=True
             )
-
-            # Generate GIF
-            output_gif = f"Nt{Nt:03d}Nx{Nx:03d}.gif"
-            gif_full_cmd = gif_command + [output_gif]  # No extra quotes!
-            
-            print(f"🎨 Generating GIF: {' '.join(gif_full_cmd)}")
-            try:
-                # Run in out_burgers/ directory
-                subprocess.run(
-                    gif_full_cmd,
-                    cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
-                    check=True
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"❌ GIF generation failed with return code {e.returncode}")
-                continue
+        except subprocess.CalledProcessError as e:
+            print(f"❌ GIF generation failed with return code {e.returncode}")
+            continue
 
 print("✅ All tasks completed.")

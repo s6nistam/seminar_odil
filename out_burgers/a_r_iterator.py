@@ -60,17 +60,17 @@ gif_command = [
 
 # List of values (powers of 2 from 4 to 256)
 # values = [16, 32, 64, 128, 256]
-a_values = [1, 2, 3, 4, 5, 6, 7]
-r_values = [1, 0.25, 0.0625, 0.015625, 0.00390625, 0.0009765625, 0.000244140625]
+a_values = [(2**i) + 1 for i in range(5)]
+r_values = [(a - 1)/100 for a in a_values]
 
 # Use correct argument names (based on your error, they are --a and --r)
 a_arg = "--a"
 r_arg = "--r"
 
 # Run the loop
-for r in r_values:
-    # for a in [r]:
-    for a in a_values:
+for a in a_values:
+    # for r in [a]:
+    for r in r_values:
 
         # time.sleep(5)
         # CLEAN FILES USING PYTHON'S GLOB (FIXED)
@@ -104,8 +104,8 @@ for r in r_values:
         cmd = burgers_command + [
             a_arg, str(a),
             r_arg, str(r),
-            "--Nt", "256",
-            "--Nx", "256"
+            "--Nt", "512",
+            "--Nx", "64"
         ]
         print(f"🚀 Running burgers.py: a={a}, r={r}")
         proc = subprocess.Popen(
@@ -129,14 +129,14 @@ for r in r_values:
             print(f"✅ burgers.py and all child processes completed for a={a}, r={r}")
 
         subprocess.run(
-            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"a{a:03d}r{r:03f} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"a{a:03f}r{r:03f} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
             cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
             check=True,
             shell=True
         )
 
         # Generate GIF
-        output_gif = f"a{a:03d}r{r:03f}.gif"
+        output_gif = f"a{a:03f}r{r:03f}.gif"
         gif_full_cmd = gif_command + [output_gif]  # No extra quotes!
         
         print(f"🎨 Generating GIF: {' '.join(gif_full_cmd)}")

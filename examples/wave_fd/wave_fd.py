@@ -165,15 +165,16 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    # parser.set_defaults(optimizer="lbfgsb")
-    parser.set_defaults(optimizer="newton")
+    parser.set_defaults(optimizer="lbfgsb")
+    # parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="newton_global")
     # parser.set_defaults(optimizer="adam")
     # parser.set_defaults(optimizer="gd")
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
+    # parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
+    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
     return parser.parse_args()
 
 
@@ -467,8 +468,12 @@ def main():
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
-    # odil.util.optimize(args, args.optimizer, problem, state, callback)
-    odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    try:
+        # arrays, optinfo = odil.util.optimize(args, args.optimizer, problem, state, callback)
+        arrays, optinfo = odil.util.optimize(args, args.optimizer, problem, state, callback, factr=10000)
+    except odil.optimizer.EarlyStopError as e:
+        print(f"Early stop: {e}")
+        plot_func(problem, state, args.epochs, args.frames)
 
     with open("done", "w"):
         pass

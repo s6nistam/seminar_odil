@@ -119,8 +119,8 @@ def operator_burgers(ctx):
 
     def apply_bc_u(st):
         extrap = odil.core.extrap_quadh
-        st[1] = mod.where(ix == 0, extrap(st[2], st[0], left_utm[:, None]), st[1])  #
-        st[2] = mod.where(ix == nx - 1, extrap(st[1], st[0], right_utm[:, None]), st[2])  #
+        st[1] = mod.where(ix == 0, extrap(st[2], st[3], left_utm[:, None]), st[1])  #
+        st[2] = mod.where(ix == nx - 1, extrap(st[1], st[3], right_utm[:, None]), st[2])  #
         return st
 
     u_st = stencil_var("u")
@@ -174,7 +174,7 @@ def parse_args():
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
-    # parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=5)
+    # parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
     return parser.parse_args()
 
 
