@@ -165,8 +165,8 @@ def parse_args():
     parser.set_defaults(multigrid=0)
     parser.set_defaults(outdir="out_wave")
     parser.set_defaults(linsolver="direct")
-    parser.set_defaults(optimizer="lbfgsb")
-    # parser.set_defaults(optimizer="newton")
+    # parser.set_defaults(optimizer="lbfgsb")
+    parser.set_defaults(optimizer="newton")
     # parser.set_defaults(optimizer="newton_global")
     # parser.set_defaults(optimizer="adam")
     # parser.set_defaults(optimizer="gd")
@@ -276,7 +276,12 @@ def get_error_t_end(domain, extra, state, key):
 def get_error_fd(domain, extra):
     ref_u = extra.ref_u
     global u_fd
-    u_error = np.sqrt(np.mean((u_fd - ref_u)**2))
+    if u_fd.shape == ref_u.shape:
+        u_error = np.sqrt(np.mean((u_fd - ref_u)**2))
+    else:
+        tt, xx= domain.points(loc="nn")
+        ref_u = get_exact([], tt, xx)[0]
+        u_error = np.sqrt(np.mean((u_fd - ref_u)**2))
     return u_error
 
 def get_error_fd_t_end(domain, extra):
@@ -357,17 +362,16 @@ def solve_fd_strong_dirichlet(domain):
     dt, dx = domain.step()
     
     # Create grids
-    t, x = domain.points_1d()
-    
-    u0, ut0 = get_exact([], x * 0 + t_lower, x)
-    left_u, _ = get_exact([], t, t * 0 + x_lower + 0.5 * dx)
-    right_u, _ = get_exact([], t, t * 0 + x_upper - 0.5 * dx)
-    
+    t, x = domain.points_1d(loc="nn")
+
     # Initialize solution arrays
-    u = np.zeros((Nt, Nx))
-    ut = np.zeros((Nt, Nx))
+    u = np.zeros((Nt + 1, Nx + 1))
+    ut = np.zeros((Nt + 1, Nx + 1))
     
-    u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower + 0.5 * dt, x)
+    u[0, :], ut[0, :] = get_exact([], x * 0 + t_lower, x)
+    left_u, _ = get_exact([], t, t * 0 + x_lower)
+    right_u, _ = get_exact([], t, t * 0 + x_upper)
+    
 
     # Apply strong Dirichlet boundary conditions
     u[:, 0] = left_u
@@ -375,16 +379,16 @@ def solve_fd_strong_dirichlet(domain):
     
     # Compute first time step using exact initial derivative    
     # Interior points for n=1 using Taylor expansion
-    for i in range(1, Nx - 1):
+    for i in range(1, Nx):
         # u(x, Δt) ≈ u(x,0) + Δt*u_t(x,0) + (Δt²/2)*u_xx(x,0)
         u[1, i] = u[0, i] + dt * ut[0, i] + (dt**2 / (2 * dx**2)) * (u[0, i+1] - 2*u[0, i] + u[0, i-1])
     
-    for n in range(1, Nt - 1):
+    for n in range(1, Nt):
         # Update interior points using finite differences
-        for i in range(1, Nx - 1):
+        for i in range(1, Nx):
             u[n+1, i] = 2*u[n, i] - u[n-1, i] + (dt**2 / dx**2) * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
 
-    return u, get_uut(domain, u0, u)
+    return u, get_uut(domain, u[0, :], u)
 
 def solve_fd_ghosts_cells(domain):
     # Unpack domain parameters

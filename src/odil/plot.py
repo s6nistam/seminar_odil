@@ -166,7 +166,9 @@ def plot_1d_fd(
     fig.subplots_adjust(hspace=0, wspace=0)
     spec = fig.add_gridspec(3 * nslices, 4)
     xx, yy = domain.points_1d(ix, iy)
+    xxn, yyn = domain.points_1d(ix, iy, loc="nn")
     xx, yy = np.array(xx), np.array(yy)
+    xxn, yyn = np.array(xxn), np.array(yyn)
     xlim = (domain.lower[ix], domain.upper[ix])
     ylim = (domain.lower[iy], domain.upper[iy])
     if umin is None:
@@ -188,7 +190,7 @@ def plot_1d_fd(
         ax.spines[:].set_linewidth(0.25)
         ax.imshow(
             data.T,
-            interpolation=interpolation,
+            interpolation="bilinear" if i == 1 and u_fd.shape != u_ref.shape else interpolation,
             cmap=cmap,
             vmin=ulim[0],
             vmax=ulim[1],
@@ -214,7 +216,7 @@ def plot_1d_fd(
         ax.spines[:].set_visible(True)
         ax.spines[:].set_linewidth(0.25)
         (l0,) = ax.plot(xx, u_ref[:, yslice], c=cref, ls="-", label="reference", linewidth=0.9)
-        (l1,) = ax.plot(xx, u_fd[:, yslice], c=cfd, ls="-", label="FD", linewidth=0.7)
+        (l1,) = ax.plot((xx if len(u_fd[:, yslice]) == len(xx) else xxn), u_fd[:, yslice], c=cfd, ls="-", label="FD", linewidth=0.7)
         (l2,) = ax.plot(xx, u_state[:, yslice], c=cstate, ls="-", label="inferred", linewidth=0.6)
         # ax.axhline(y=0, color='black', linewidth=0.5)
         ax.set_xticks([])
