@@ -108,21 +108,17 @@ for Nx in values:
                 Nx_arg, str(Nx)
             ]
             print(f"🚀 Running wave.py: Nt={Nt}, Nx={Nx}")
+            # Start the process without capturing stdout/stderr so output is printed live
             proc = subprocess.Popen(
                 cmd,
                 cwd="/home/nico/Desktop/Local/Seminar/seminar_odil",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
             )
-            
+
             try:
-                # Wait for main process to finish
-                stdout, stderr = proc.communicate(timeout=None)
-                if proc.returncode != 0:
-                    print(f"❌ wave.py failed with return code {proc.returncode}")
-                    print(f"Stdout: {stdout.decode()}")
-                    print(f"Stderr: {stderr.decode()}")
-                    # continue
+                # Wait for main process to finish; output appears directly on the console
+                returncode = proc.wait()
+                if returncode != 0:
+                    print(f"❌ wave.py failed with return code {returncode}")
             finally:
                 # CRITICAL: Wait for all child processes
                 wait_for_children(proc.pid)

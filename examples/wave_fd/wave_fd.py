@@ -173,8 +173,7 @@ def parse_args():
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    # parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
-    parser.set_defaults(plot_every=1000, report_every=10, history_full=5, history_every=10, frames=100)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=10)
     return parser.parse_args()
 
 

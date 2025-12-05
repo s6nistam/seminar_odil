@@ -167,8 +167,14 @@ def optimize_newton(args, problem, state, callback=None, **kwargs):
     if callback:
         callback(state, args.epoch_start, pinfo)
 
+    vector, matrix = problem.linearize(state)
+    # print("matrix cond", np.linalg.cond(matrix.toarray()))
     for epoch in range(args.epoch_start, args.epochs):
+        last_matrix = matrix
+        last_vector = vector
+        print("matrix diff", f"{np.linalg.norm((matrix - last_matrix).toarray()) if last_matrix is not None else "N/A"}")
         vector, matrix = problem.linearize(state)
+        print("vector diff", np.linalg.norm(vector - last_vector) if last_vector is not None else "N/A")
         opt.evals += 1
         linstatus = dict()
         delta = solve(matrix, -vector, args, linstatus, args.linsolver)
@@ -463,6 +469,7 @@ def make_callback(
         cbinfo.task_checkpoint = args.checkpoint_every and epoch % args.checkpoint_every == 0
 
         cbinfo.pinfo = pinfo
+        print("loss", pinfo.get("loss", None))
 
         tracers = problem.tracers
         if isinstance(tracers, dict):
