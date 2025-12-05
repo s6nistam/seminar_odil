@@ -169,7 +169,7 @@ def parse_args():
     parser.set_defaults(lr=0.001)
     parser.set_defaults(plotext="png", plot_title=1)
     # parser.set_defaults(plotext="svg", plot_title=1)
-    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=3)
+    parser.set_defaults(plot_every=1, report_every=10, history_full=5, history_every=10, frames=10)
     return parser.parse_args()
 
 
@@ -323,7 +323,7 @@ def make_problem(args):
     tt, xx = domain.points()
     t1, x1 = domain.points_1d()
     ref_u, ref_ut = get_exact(args, tt, xx)
-    print(ref_u.shape, ref_ut.shape, "ref")
+    # print(ref_u.shape, ref_ut.shape, "ref")
     left_u, _ = get_exact(args, t1, t1 * 0 + domain.lower[1])
     right_u, _ = get_exact(args, t1, t1 * 0 + domain.upper[1])
     init_u, init_ut = get_exact(args, x1 * 0 + domain.lower[0], x1)
@@ -392,7 +392,7 @@ def solve_fd_ghosts_cells(domain):
     
     # Create grids
     t, x = domain.points_1d()
-    print(t[-1], x[-1], "points")
+    # print(t[-1], x[-1], "points")
 
     
     u0, ut0 = get_exact([], x * 0 + t_lower, x)
@@ -444,7 +444,7 @@ def main():
     global ut_fd
     # u_fd, ut_fd = solve_fd_strong_dirichlet(problem.domain)
     u_fd, ut_fd = solve_fd_ghosts_cells(problem.domain)
-    print(u_fd.shape, ut_fd.shape, "fd")
+    # print(u_fd.shape, ut_fd.shape, "fd")
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
