@@ -127,7 +127,8 @@ for Nx in values:
             print(f"✅ burgers.py and all child processes completed for Nt={Nt}, Nx={Nx}")
 
         subprocess.run(
-            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"Nt{Nt:03d}Nx{Nx:03d} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+                "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"({Nt:03d},{Nx:03d}) " + "\" $1 \" \" $2}' >> errors.txt", 
+                # "cut -d ',' -f 9-11 train.csv | tail -1 | awk -F',' '{print \"" + f"({Nt:03d},{Nx:03d}) " + "\" $1 \" \" $2 \" \" $3}' >> errors.txt", 
             cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
             check=True,
             shell=True

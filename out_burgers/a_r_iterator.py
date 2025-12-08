@@ -129,7 +129,8 @@ for a in a_values:
             print(f"✅ burgers.py and all child processes completed for a={a}, r={r}")
 
         subprocess.run(
-            "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"a{a:03f}r{r:03f} u: " + "\" $1 \" u: \" $2}' >> errors.txt", 
+                "cut -d ',' -f 9-10 train.csv | tail -1 | awk -F',' '{print \"" + f"({a:03f},{r:03f}) " + "\" $1 \" \" $2}' >> errors.txt", 
+                # "cut -d ',' -f 9-11 train.csv | tail -1 | awk -F',' '{print \"" + f"({a:03f},{r:03f}) " + "\" $1 \" \" $2 \" \" $3}' >> errors.txt", 
             cwd="/home/nico/Desktop/Local/Seminar/seminar_odil/out_burgers",
             check=True,
             shell=True

@@ -168,7 +168,13 @@ def optimize_newton(args, problem, state, callback=None, **kwargs):
         callback(state, args.epoch_start, pinfo)
 
     vector, matrix = problem.linearize(state)
-    # print("matrix cond", np.linalg.cond(matrix.toarray()))
+    matr_reg = matrix.T.dot(matrix).tocsr()
+    import scipy.sparse.linalg
+
+    ew1 = abs(scipy.sparse.linalg.eigsh(matr_reg, which='LM')[0])
+    ew2 = abs(scipy.sparse.linalg.eigsh(matr_reg, sigma=1e-14)[0])
+    jtjcond = ew1.max()/ew2.min()
+    print("jtj cond", jtjcond)
     for epoch in range(args.epoch_start, args.epochs):
         last_matrix = matrix
         last_vector = vector
@@ -185,6 +191,7 @@ def optimize_newton(args, problem, state, callback=None, **kwargs):
         if callback:
             pinfo = eval_pinfo(state)
             pinfo["linsolver"] = linstatus
+            pinfo["jtjcond"] = jtjcond
             callback(state, epoch + 1, pinfo)
     arrays = domain.arrays_from_state(state)
     optinfo = argparse.Namespace()

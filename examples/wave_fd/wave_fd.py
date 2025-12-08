@@ -300,7 +300,7 @@ def history_func(problem, state, epoch, history, cbinfo):
         if error is not None:
             history.append("error_" + key, error)
     history.append("error_" + "u_fd", get_error_fd(domain, extra))
-
+    history.append("jtjcond", cbinfo.pinfo.get("jtjcond", 0.0))
 
 def report_func(problem, state, epoch, cbinfo):
     domain = problem.domain
@@ -466,8 +466,8 @@ def main():
     problem, state = make_problem(args)
     global u_fd
     global ut_fd
-    # u_fd, ut_fd = solve_fd_strong_dirichlet(problem.domain)
-    u_fd, ut_fd = solve_fd_ghosts_cells(problem.domain)
+    u_fd, ut_fd = solve_fd_strong_dirichlet(problem.domain)
+    # u_fd, ut_fd = solve_fd_ghosts_cells(problem.domain)
     callback = odil.make_callback(
         problem, args, plot_func=plot_func, history_func=history_func, report_func=report_func
     )
